@@ -8,6 +8,10 @@
 import SwiftUI
 
 struct ContentView: View {
+    @State private var showingQuiz = false
+    @State private var studentId: String = ""
+    @State private var studentName: String = ""
+    
     var body: some View {
         TabView {
             DashboardView()
@@ -28,6 +32,19 @@ struct ContentView: View {
                     Text("Lesson")
                 }
             
+            Button(action: {
+                showingQuiz = true
+            }) {
+                VStack {
+                    Image(systemName: "brain.head.profile")
+                    Text("Quiz")
+                }
+            }
+            .tabItem {
+                Image(systemName: "brain.head.profile")
+                Text("Quiz")
+            }
+            
             SubmissionView()
                 .tabItem {
                     Image(systemName: "arrow.up.doc")
@@ -47,9 +64,21 @@ struct ContentView: View {
                 }
         }
         .accentColor(.blue)
+        .sheet(isPresented: $showingQuiz) {
+            QuizView(studentId: studentId, studentName: studentName)
+        }
+        .onAppear {
+            loadStudentSession()
+        }
+    }
+    
+    private func loadStudentSession() {
+        // TODO: Replace with actual user session/authentication
+        // For now, load from UserDefaults or use placeholder values
+        studentId = UserDefaults.standard.string(forKey: "studentId") ?? "D0123456"
+        studentName = UserDefaults.standard.string(forKey: "studentName") ?? "Sample Student"
     }
 }
 
 #Preview {
     ContentView()
-}
