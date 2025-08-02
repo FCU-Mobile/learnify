@@ -8,18 +8,24 @@
 import SwiftUI
 
 struct QuizView: View {
+    // MARK: - Constants
+    private static let quizDurationSeconds = 1500 // 25 minutes in seconds
+    
+    // MARK: - State Variables
     @State private var selectedQuiz: Quiz?
     @State private var currentQuestionIndex = 0
     @State private var selectedAnswer: Int? = nil
     @State private var answers: [Int?] = []
-    @State private var timeRemaining = 1500 // 25 minutes in seconds
+    @State private var timeRemaining = QuizView.quizDurationSeconds
     @State private var timer: Timer?
     @State private var showResults = false
     @State private var quizAttempt: QuizAttempt?
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var availableQuizzes: [Quiz] = []
     
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
     
     let studentId: String
     let studentName: String
@@ -51,6 +57,9 @@ struct QuizView: View {
                     }
                 }
             }
+        }
+        .onChange(of: scenePhase) { oldPhase, newPhase in
+            handleScenePhaseChange(newPhase)
         }
         .alert("Quiz Complete", isPresented: $showResults) {
             Button("Review Answers") {
@@ -165,7 +174,7 @@ struct QuizView: View {
                                     Image(systemName: selectedAnswer == index ? "checkmark.circle.fill" : "circle")
                                         .foregroundColor(selectedAnswer == index ? .blue : .gray)
                                     
-                                    Text("\(String(UnicodeScalar(65 + index)!)). \(option.option_text)")
+                                    Text("\(optionLabel(for: index)). \(option.option_text)")
                                         .multilineTextAlignment(.leading)
                                         .foregroundColor(.primary)
                                     
@@ -218,14 +227,34 @@ struct QuizView: View {
     private func startQuiz() {
         isLoading = true
         
-        // Create a sample quiz (in real implementation, this would come from the API)
-        let sampleQuiz = createSampleSwiftUIQuiz()
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            selectedQuiz = sampleQuiz
-            answers = Array(repeating: nil, count: sampleQuiz.questions.count)
-            startTimer()
-            isLoading = false
+        Task {
+            do {
+                // Load available quizzes from API
+                if availableQuizzes.isEmpty {
+                    availableQuizzes = try await APIService.shared.getAvailableQuizzes()
+                }
+                
+                // For now, use the first available quiz or fall back to sample data
+                let quiz: Quiz
+                if let firstQuiz = availableQuizzes.first {
+                    quiz = try await APIService.shared.getQuiz(id: firstQuiz.id)
+                } else {
+                    // Fallback to sample quiz if no API quizzes available
+                    quiz = createSampleSwiftUIQuiz()
+                }
+                
+                await MainActor.run {
+                    selectedQuiz = quiz
+                    answers = Array(repeating: nil, count: quiz.questions.count)
+                    startTimer()
+                    isLoading = false
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = "Failed to load quiz: \(error.localizedDescription)"
+                    isLoading = false
+                }
+            }
         }
     }
     
@@ -289,23 +318,46 @@ struct QuizView: View {
         }
         
         let totalPossible = quiz.questions.reduce(0) { $0 + $1.points }
-        let percentage = totalPossible > 0 ? Double(totalPoints) / Double(totalPossible) * 100 : 0
+        let timeTakenMinutes = (QuizView.quizDurationSeconds - timeRemaining) / 60
         
-        quizAttempt = QuizAttempt(
-            id: 0,
-            quiz_id: quiz.id,
-            student_id: studentId,
-            student_uuid: nil,
-            score: totalPoints,
-            total_possible_points: totalPossible,
-            percentage: percentage,
-            time_taken_minutes: (1500 - timeRemaining) / 60,
-            started_at: "",
-            completed_at: nil,
-            is_completed: true
-        )
-        
-        showResults = true
+        // Submit quiz attempt to API
+        Task {
+            do {
+                let attempt = try await APIService.shared.submitQuizAttempt(
+                    quiz: quiz,
+                    studentId: studentId,
+                    answers: answers,
+                    timeTakenMinutes: timeTakenMinutes
+                )
+                
+                await MainActor.run {
+                    quizAttempt = attempt
+                    showResults = true
+                }
+            } catch {
+                // Fallback to local calculation if API fails
+                let percentage = totalPossible > 0 ? Double(totalPoints) / Double(totalPossible) * 100 : 0
+                
+                await MainActor.run {
+                    quizAttempt = QuizAttempt(
+                        id: 0,
+                        quiz_id: quiz.id,
+                        student_id: studentId,
+                        student_uuid: nil,
+                        score: totalPoints,
+                        total_possible_points: totalPossible,
+                        percentage: percentage,
+                        time_taken_minutes: timeTakenMinutes,
+                        started_at: "",
+                        completed_at: nil,
+                        is_completed: true
+                    )
+                    
+                    errorMessage = "Quiz completed locally. Could not sync with server: \(error.localizedDescription)"
+                    showResults = true
+                }
+            }
+        }
     }
     
     private func resetQuiz() {
@@ -313,10 +365,33 @@ struct QuizView: View {
         currentQuestionIndex = 0
         selectedAnswer = nil
         answers = []
-        timeRemaining = 1500
+        timeRemaining = QuizView.quizDurationSeconds
         showResults = false
         quizAttempt = nil
         stopTimer()
+    }
+    
+    // MARK: - Helper Functions
+    
+    private func optionLabel(for index: Int) -> String {
+        // Safely create option labels (A, B, C, D, etc.)
+        guard index >= 0 && index < 26 else { return "?" }
+        return String(Character(UnicodeScalar(65 + index)!))
+    }
+    
+    private func handleScenePhaseChange(_ newPhase: ScenePhase) {
+        switch newPhase {
+        case .background, .inactive:
+            // Pause timer when app goes to background
+            timer?.invalidate()
+        case .active:
+            // Resume timer when app becomes active (only if quiz is in progress)
+            if selectedQuiz != nil && !showResults && timeRemaining > 0 {
+                startTimer()
+            }
+        @unknown default:
+            break
+        }
     }
 }
 
