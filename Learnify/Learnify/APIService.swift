@@ -855,6 +855,110 @@ final class APIService: NSObject, URLSessionTaskDelegate {
         print("✅ Successfully updated lesson progress")
         return updateResponse.data.progress
     }
+    
+    // MARK: - Quiz API Methods
+    
+    func getAvailableQuizzes() async throws -> [Quiz] {
+        let url = URL(string: "\(baseURL)/api/quizzes")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        
+        print("📤 Fetching available quizzes")
+        
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 30.0
+        config.timeoutIntervalForResource = 60.0
+        config.requestCachePolicy = .reloadIgnoringLocalCacheData
+        let session = URLSession(configuration: config)
+        
+        let (data, response) = try await session.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
+        }
+        
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.serverError(httpResponse.statusCode)
+        }
+        
+        let quizzesResponse = try JSONDecoder().decode(QuizzesResponse.self, from: data)
+        print("✅ Successfully fetched \(quizzesResponse.data.count) quizzes")
+        return quizzesResponse.data
+    }
+    
+    func getQuiz(id: Int) async throws -> Quiz {
+        let url = URL(string: "\(baseURL)/api/quizzes/\(id)")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        
+        print("📤 Fetching quiz \(id)")
+        
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 30.0
+        let session = URLSession(configuration: config)
+        
+        let (data, response) = try await session.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
+        }
+        
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.serverError(httpResponse.statusCode)
+        }
+        
+        let quizResponse = try JSONDecoder().decode(QuizResponse.self, from: data)
+        print("✅ Successfully fetched quiz \(id)")
+        return quizResponse.data
+    }
+    
+    func submitQuizAttempt(quiz: Quiz, studentId: String, answers: [Int?], timeTakenMinutes: Int) async throws -> QuizAttempt {
+        let url = URL(string: "\(baseURL)/api/quiz-attempts")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        
+        // Convert answers to submission format
+        let answerSubmissions = answers.enumerated().compactMap { index, answer -> QuizAnswerSubmission? in
+            guard let selectedAnswer = answer else { return nil }
+            return QuizAnswerSubmission(
+                question_id: quiz.questions[index].id,
+                selected_answer: selectedAnswer
+            )
+        }
+        
+        let submission = QuizSubmissionRequest(
+            quiz_id: quiz.id,
+            student_id: studentId,
+            answers: answerSubmissions,
+            time_taken_minutes: timeTakenMinutes
+        )
+        
+        request.httpBody = try JSONEncoder().encode(submission)
+        
+        print("📤 Submitting quiz attempt for student: \(studentId)")
+        
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 30.0
+        let session = URLSession(configuration: config)
+        
+        let (data, response) = try await session.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
+        }
+        
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.serverError(httpResponse.statusCode)
+        }
+        
+        let attemptResponse = try JSONDecoder().decode(QuizAttemptResponse.self, from: data)
+        print("✅ Successfully submitted quiz attempt")
+        return attemptResponse.data.attempt
+    }
 }
 
 // MARK: - Data Models
@@ -1165,4 +1269,98 @@ struct Submission: Codable, Identifiable {
     let student_name: String?
     let created_at: String
     let updated_at: String
+}
+
+// MARK: - Quiz Data Models
+
+struct Quiz: Codable, Identifiable {
+    let id: Int
+    let title: String
+    let description: String?
+    let time_limit_minutes: Int
+    let total_points: Int
+    let is_active: Bool
+    let created_at: String
+    let updated_at: String
+    let questions: [Question]
+}
+
+struct Question: Codable, Identifiable {
+    let id: Int
+    let quiz_id: Int
+    let question_text: String
+    let question_type: String
+    let code_snippet: String?
+    let correct_answer: Int
+    let points: Int
+    let sort_order: Int
+    let created_at: String
+    let updated_at: String
+    let options: [QuestionOption]
+}
+
+struct QuestionOption: Codable, Identifiable {
+    let id: Int
+    let question_id: Int
+    let option_text: String
+    let option_index: Int
+    let created_at: String
+}
+
+struct QuizAttempt: Codable, Identifiable {
+    let id: Int
+    let quiz_id: Int
+    let student_id: String
+    let student_uuid: String?
+    let score: Int
+    let total_possible_points: Int
+    let percentage: Double
+    let time_taken_minutes: Int
+    let started_at: String
+    let completed_at: String?
+    let is_completed: Bool
+}
+
+struct QuizAnswer: Codable, Identifiable {
+    let id: Int
+    let attempt_id: Int
+    let question_id: Int
+    let selected_answer: Int
+    let is_correct: Bool
+    let points_earned: Int
+    let answered_at: String
+}
+
+// MARK: - Quiz API Response Models
+
+struct QuizzesResponse: Codable {
+    let success: Bool
+    let data: [Quiz]
+}
+
+struct QuizResponse: Codable {
+    let success: Bool
+    let data: Quiz
+}
+
+struct QuizAttemptResponse: Codable {
+    let success: Bool
+    let data: QuizAttemptData
+    let message: String
+}
+
+struct QuizAttemptData: Codable {
+    let attempt: QuizAttempt
+}
+
+struct QuizSubmissionRequest: Codable {
+    let quiz_id: Int
+    let student_id: String
+    let answers: [QuizAnswerSubmission]
+    let time_taken_minutes: Int
+}
+
+struct QuizAnswerSubmission: Codable {
+    let question_id: Int
+    let selected_answer: Int
 }

@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct ContentView: View {
+    @State private var showingQuiz = false
+    
     var body: some View {
         TabView {
             DashboardView()
@@ -28,6 +30,19 @@ struct ContentView: View {
                     Text("Lesson")
                 }
             
+            Button(action: {
+                showingQuiz = true
+            }) {
+                VStack {
+                    Image(systemName: "brain.head.profile")
+                    Text("Quiz")
+                }
+            }
+            .tabItem {
+                Image(systemName: "brain.head.profile")
+                Text("Quiz")
+            }
+            
             SubmissionView()
                 .tabItem {
                     Image(systemName: "arrow.up.doc")
@@ -47,6 +62,9 @@ struct ContentView: View {
                 }
         }
         .accentColor(.blue)
+        .sheet(isPresented: $showingQuiz) {
+            QuizView(studentId: "D0123456", studentName: "Sample Student")
+        }
     }
 }
 
