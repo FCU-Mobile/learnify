@@ -34,6 +34,12 @@ struct ContentView: View {
                     Text("Submit")
                 }
             
+            ProjectSubmissionsView()
+                .tabItem {
+                    Image(systemName: "star.circle")
+                    Text("Projects")
+                }
+            
             ReviewSubmissionView()
                 .tabItem {
                     Image(systemName: "bubble.left.and.bubble.right")

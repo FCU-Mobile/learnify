@@ -651,7 +651,7 @@ final class APIService: NSObject, URLSessionTaskDelegate {
     }
     
     // MARK: - Submissions
-    func submitSubmission(studentId: String, fullName: String, submissionType: String, title: String, description: String?, githubURL: String?, imageData: Data?) async throws -> SubmissionResponse {
+    func submitSubmission(studentId: String, fullName: String, submissionType: String, title: String, description: String?, githubURL: String?, imageData: Data?, tags: [String]? = nil, projectType: String? = nil, isProject: Bool? = nil) async throws -> SubmissionResponse {
         let url = URL(string: "\(baseURL)/api/submissions")!
         
         // Create multipart form data
@@ -691,6 +691,28 @@ final class APIService: NSObject, URLSessionTaskDelegate {
             body.append("--\(boundary)\r\n".data(using: .utf8)!)
             body.append("Content-Disposition: form-data; name=\"github_url\"\r\n\r\n".data(using: .utf8)!)
             body.append("\(githubURL)\r\n".data(using: .utf8)!)
+        }
+        
+        if let tags = tags {
+            // Send tags as JSON array
+            if let tagsData = try? JSONEncoder().encode(tags),
+               let tagsString = String(data: tagsData, encoding: .utf8) {
+                body.append("--\(boundary)\r\n".data(using: .utf8)!)
+                body.append("Content-Disposition: form-data; name=\"tags\"\r\n\r\n".data(using: .utf8)!)
+                body.append("\(tagsString)\r\n".data(using: .utf8)!)
+            }
+        }
+        
+        if let projectType = projectType {
+            body.append("--\(boundary)\r\n".data(using: .utf8)!)
+            body.append("Content-Disposition: form-data; name=\"project_type\"\r\n\r\n".data(using: .utf8)!)
+            body.append("\(projectType)\r\n".data(using: .utf8)!)
+        }
+        
+        if let isProject = isProject {
+            body.append("--\(boundary)\r\n".data(using: .utf8)!)
+            body.append("Content-Disposition: form-data; name=\"is_project\"\r\n\r\n".data(using: .utf8)!)
+            body.append("\(isProject ? "true" : "false")\r\n".data(using: .utf8)!)
         }
         
         // Add file data if present
@@ -756,6 +778,202 @@ final class APIService: NSObject, URLSessionTaskDelegate {
             }
         }
         throw lastError ?? APIError.networkError("Failed to submit after multiple retries.")
+    }
+    
+    // MARK: - Enhanced Submissions API
+    
+    func getProjectSubmissions(projectType: String = "all", limit: Int = 50, offset: Int = 0) async throws -> ProjectSubmissionsResponse {
+        var urlComponents = URLComponents(string: "\(baseURL)/api/submissions/projects")!
+        urlComponents.queryItems = [
+            URLQueryItem(name: "project_type", value: projectType),
+            URLQueryItem(name: "limit", value: String(limit)),
+            URLQueryItem(name: "offset", value: String(offset))
+        ]
+        
+        guard let url = urlComponents.url else {
+            throw APIError.invalidURL
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        
+        print("📤 Fetching project submissions")
+        
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 30.0
+        let session = URLSession(configuration: config)
+        
+        let (data, response) = try await session.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
+        }
+        
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.serverError(httpResponse.statusCode)
+        }
+        
+        return try JSONDecoder().decode(ProjectSubmissionsResponse.self, from: data)
+    }
+    
+    func getSubmissionLeaderboard() async throws -> SubmissionLeaderboardResponse {
+        let url = URL(string: "\(baseURL)/api/submissions/leaderboard")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        
+        print("📤 Fetching submission leaderboard")
+        
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 30.0
+        let session = URLSession(configuration: config)
+        
+        let (data, response) = try await session.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
+        }
+        
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.serverError(httpResponse.statusCode)
+        }
+        
+        return try JSONDecoder().decode(SubmissionLeaderboardResponse.self, from: data)
+    }
+    
+    // MARK: - Feedback API
+    
+    func submitFeedback(submissionId: Int, reviewerStudentId: String, reviewerFullName: String?, feedbackText: String, rating: Int?, isPrivate: Bool = true) async throws -> FeedbackResponse {
+        let url = URL(string: "\(baseURL)/api/submissions/\(submissionId)/feedback")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        
+        let feedbackData = FeedbackRequest(
+            submission_id: String(submissionId),
+            reviewer_student_id: reviewerStudentId,
+            reviewer_full_name: reviewerFullName,
+            feedback_text: feedbackText,
+            rating: rating,
+            is_private: isPrivate
+        )
+        
+        request.httpBody = try JSONEncoder().encode(feedbackData)
+        
+        print("📤 Submitting feedback for submission \(submissionId)")
+        
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 30.0
+        let session = URLSession(configuration: config)
+        
+        let (data, response) = try await session.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
+        }
+        
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.serverError(httpResponse.statusCode)
+        }
+        
+        return try JSONDecoder().decode(FeedbackResponse.self, from: data)
+    }
+    
+    func getSubmissionFeedback(submissionId: Int, includePrivate: Bool = false) async throws -> FeedbackListResponse {
+        var urlComponents = URLComponents(string: "\(baseURL)/api/submissions/\(submissionId)/feedback")!
+        if includePrivate {
+            urlComponents.queryItems = [URLQueryItem(name: "include_private", value: "true")]
+        }
+        
+        guard let url = urlComponents.url else {
+            throw APIError.invalidURL
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        
+        print("📤 Fetching feedback for submission \(submissionId)")
+        
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 30.0
+        let session = URLSession(configuration: config)
+        
+        let (data, response) = try await session.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
+        }
+        
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.serverError(httpResponse.statusCode)
+        }
+        
+        return try JSONDecoder().decode(FeedbackListResponse.self, from: data)
+    }
+    
+    // MARK: - Voting API
+    
+    func voteForSubmission(submissionId: Int, voterStudentId: String, voterFullName: String?, voteType: String = "best_project") async throws -> VoteResponse {
+        let url = URL(string: "\(baseURL)/api/submissions/\(submissionId)/vote")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        
+        let voteData = VoteRequest(
+            submission_id: String(submissionId),
+            voter_student_id: voterStudentId,
+            voter_full_name: voterFullName,
+            vote_type: voteType
+        )
+        
+        request.httpBody = try JSONEncoder().encode(voteData)
+        
+        print("📤 Voting for submission \(submissionId)")
+        
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 30.0
+        let session = URLSession(configuration: config)
+        
+        let (data, response) = try await session.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
+        }
+        
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.serverError(httpResponse.statusCode)
+        }
+        
+        return try JSONDecoder().decode(VoteResponse.self, from: data)
+    }
+    
+    func getSubmissionVotes(submissionId: Int) async throws -> VoteListResponse {
+        let url = URL(string: "\(baseURL)/api/submissions/\(submissionId)/votes")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        
+        print("📤 Fetching votes for submission \(submissionId)")
+        
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 30.0
+        let session = URLSession(configuration: config)
+        
+        let (data, response) = try await session.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
+        }
+        
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.serverError(httpResponse.statusCode)
+        }
+        
+        return try JSONDecoder().decode(VoteListResponse.self, from: data)
     }
     
     // MARK: - Admin/Teacher Lesson Management
@@ -1163,6 +1381,139 @@ struct Submission: Codable, Identifiable {
     let lesson_id: String?
     let file_url: String?
     let student_name: String?
+    let created_at: String
+    let updated_at: String
+    // Enhanced fields
+    let tags: [String]?
+    let project_type: String?
+    let is_project: Bool?
+    let vote_score: Int?
+    let feedback_count: Int?
+    let average_rating: Double?
+    let total_votes: Int?
+}
+
+// MARK: - Enhanced Submission Models
+
+struct ProjectSubmissionsResponse: Codable {
+    let success: Bool
+    let data: ProjectSubmissionsData
+}
+
+struct ProjectSubmissionsData: Codable {
+    let projects: [Submission]
+    let total: Int
+    let showing: ProjectShowingInfo
+}
+
+struct ProjectShowingInfo: Codable {
+    let limit: Int
+    let offset: Int
+    let project_type_filter: String
+}
+
+struct SubmissionLeaderboardResponse: Codable {
+    let success: Bool
+    let data: SubmissionLeaderboardData
+}
+
+struct SubmissionLeaderboardData: Codable {
+    let leaderboard: [SubmissionLeaderboardEntry]
+    let total: Int
+}
+
+struct SubmissionLeaderboardEntry: Codable, Identifiable {
+    let student_id: String
+    let student_name: String
+    let total_vote_score: Int
+    let total_feedback_received: Int
+    let overall_rating: Double
+    let total_submissions: Int
+    
+    var id: String { student_id }
+}
+
+// MARK: - Feedback Models
+
+struct FeedbackRequest: Codable {
+    let submission_id: String
+    let reviewer_student_id: String
+    let reviewer_full_name: String?
+    let feedback_text: String
+    let rating: Int?
+    let is_private: Bool
+}
+
+struct FeedbackResponse: Codable {
+    let success: Bool
+    let data: FeedbackData
+    let message: String
+}
+
+struct FeedbackData: Codable {
+    let feedback: SubmissionFeedback
+}
+
+struct FeedbackListResponse: Codable {
+    let success: Bool
+    let data: FeedbackListData
+}
+
+struct FeedbackListData: Codable {
+    let feedback: [SubmissionFeedback]
+    let total: Int
+}
+
+struct SubmissionFeedback: Codable, Identifiable {
+    let id: Int
+    let submission_id: Int
+    let reviewer_student_id: String
+    let feedback_text: String
+    let rating: Int?
+    let is_private: Bool
+    let reviewer_name: String?
+    let students: StudentInfo?
+    let created_at: String
+    let updated_at: String
+}
+
+// MARK: - Voting Models
+
+struct VoteRequest: Codable {
+    let submission_id: String
+    let voter_student_id: String
+    let voter_full_name: String?
+    let vote_type: String
+}
+
+struct VoteResponse: Codable {
+    let success: Bool
+    let data: VoteData
+    let message: String
+}
+
+struct VoteData: Codable {
+    let vote: SubmissionVote
+}
+
+struct VoteListResponse: Codable {
+    let success: Bool
+    let data: VoteListData
+}
+
+struct VoteListData: Codable {
+    let votes: [SubmissionVote]
+    let total: Int
+    let summary: [String: Int]
+}
+
+struct SubmissionVote: Codable, Identifiable {
+    let id: Int
+    let submission_id: Int
+    let voter_student_id: String
+    let vote_type: String
+    let voter_name: String?
+    let students: StudentInfo?
     let created_at: String
     let updated_at: String
 }

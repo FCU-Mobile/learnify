@@ -21,6 +21,13 @@ struct SubmissionView: View {
     @State private var alertMessage = ""
     @State private var showingPhotoPicker = false
     
+    // Enhanced project fields
+    @State private var isProject = false
+    @State private var projectType: ProjectType = .regular
+    @State private var tags: [String] = []
+    @State private var newTag = ""
+    @State private var showingTagInput = false
+    
     // User info - use AppStorage consistent with other features
     @AppStorage("student_id") private var storedStudentId: String = ""
     @AppStorage("student_name") private var storedStudentName: String = ""
@@ -44,6 +51,28 @@ struct SubmissionView: View {
         }
     }
     
+    enum ProjectType: String, CaseIterable {
+        case regular = "regular"
+        case midterm = "midterm"
+        case final = "final"
+        
+        var displayName: String {
+            switch self {
+            case .regular: return "Regular"
+            case .midterm: return "Midterm Project"
+            case .final: return "Final Project"
+            }
+        }
+        
+        var icon: String {
+            switch self {
+            case .regular: return "doc"
+            case .midterm: return "star.fill"
+            case .final: return "crown.fill"
+            }
+        }
+    }
+    
     var body: some View {
         NavigationView {
             ScrollView {
@@ -63,6 +92,14 @@ struct SubmissionView: View {
                     
                     // Description Input
                     descriptionSection
+                    
+                    // Project Type Section
+                    projectTypeSection
+                    
+                    // Tags Section
+                    if isProject {
+                        tagsSection
+                    }
                     
                     // Conditional inputs based on submission type
                     if submissionType == .githubRepo {
@@ -324,6 +361,127 @@ struct SubmissionView: View {
             }
             .disabled(!canSubmit || isUploading)
         }
+        .alert("Add Tag", isPresented: $showingTagInput) {
+            TextField("Tag name", text: $newTag)
+            Button("Add") {
+                if !newTag.isEmpty && !tags.contains(newTag) {
+                    tags.append(newTag)
+                    newTag = ""
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                newTag = ""
+            }
+        } message: {
+            Text("Enter a tag for this submission")
+        }
+    }
+    
+    // MARK: - Project Type Section
+    private var projectTypeSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Project Type")
+                .font(.headline)
+                .foregroundColor(.primary)
+            
+            // Project toggle
+            Toggle("This is a project submission", isOn: $isProject)
+                .toggleStyle(SwitchToggleStyle(tint: .blue))
+                .onChange(of: isProject) { newValue in
+                    if !newValue {
+                        // Reset project-specific settings when turning off project mode
+                        projectType = .regular
+                        tags.removeAll()
+                    } else {
+                        // Auto-suggest tags based on project type
+                        updateTagsForProjectType()
+                    }
+                }
+            
+            if isProject {
+                // Project type picker
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Project Category")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.primary)
+                    
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 10) {
+                        ForEach(ProjectType.allCases, id: \.self) { type in
+                            Button(action: {
+                                projectType = type
+                                updateTagsForProjectType()
+                            }) {
+                                VStack(spacing: 6) {
+                                    Image(systemName: type.icon)
+                                        .font(.title3)
+                                        .foregroundColor(projectType == type ? .white : .blue)
+                                    Text(type.displayName)
+                                        .font(.caption)
+                                        .fontWeight(.medium)
+                                        .foregroundColor(projectType == type ? .white : .primary)
+                                        .multilineTextAlignment(.center)
+                                }
+                                .frame(height: 60)
+                                .frame(maxWidth: .infinity)
+                                .background(projectType == type ? Color.blue : Color.blue.opacity(0.1))
+                                .cornerRadius(10)
+                            }
+                        }
+                    }
+                }
+                .padding(.top, 8)
+            }
+        }
+    }
+    
+    // MARK: - Tags Section
+    private var tagsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Tags")
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                
+                Spacer()
+                
+                Button("Add Tag") {
+                    showingTagInput = true
+                }
+                .font(.caption)
+                .foregroundColor(.blue)
+            }
+            
+            if tags.isEmpty {
+                Text("No tags added yet")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .italic()
+            } else {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 8) {
+                    ForEach(tags, id: \.self) { tag in
+                        HStack {
+                            Text("#\(tag)")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundColor(.blue)
+                            
+                            Button(action: {
+                                tags.removeAll { $0 == tag }
+                            }) {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.caption)
+                                    .foregroundColor(.red)
+                            }
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.blue.opacity(0.1))
+                        .cornerRadius(8)
+                    }
+                }
+            }
+        }
     }
     
     // MARK: - Computed Properties
@@ -344,6 +502,23 @@ struct SubmissionView: View {
         // storedStudentId and storedStudentName are automatically loaded from AppStorage
     }
     
+    private func updateTagsForProjectType() {
+        // Auto-suggest tags based on project type
+        switch projectType {
+        case .midterm:
+            if !tags.contains("midterm") {
+                tags.append("midterm")
+            }
+        case .final:
+            if !tags.contains("final") {
+                tags.append("final")
+            }
+        case .regular:
+            // Remove project-specific tags for regular submissions
+            tags.removeAll { $0 == "midterm" || $0 == "final" }
+        }
+    }
+    
     private func submitSubmission() {
         guard canSubmit else { return }
         
@@ -359,7 +534,10 @@ struct SubmissionView: View {
                     title: title,
                     description: description.isEmpty ? nil : description,
                     githubURL: githubURL.isEmpty ? nil : githubURL,
-                    imageData: selectedImageData
+                    imageData: selectedImageData,
+                    tags: tags.isEmpty ? nil : tags,
+                    projectType: isProject ? projectType.rawValue : nil,
+                    isProject: isProject
                 )
                 
                 await MainActor.run {
@@ -375,6 +553,9 @@ struct SubmissionView: View {
                     selectedImage = nil
                     selectedImageData = nil
                     submissionType = .screenshot
+                    isProject = false
+                    projectType = .regular
+                    tags.removeAll()
                 }
             } catch {
                 await MainActor.run {
