@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useSemester } from '../contexts/SemesterContext';
 import { getStudentCheckIns, getStudentReviews } from '../lib/api';
 
 interface ActivityItem {
@@ -13,8 +14,11 @@ interface ActivityItem {
 
 const RecentActivity: React.FC = () => {
   const { studentId } = useAuth();
+  const { selectedSemester } = useSemester();
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  const isFallSemester = selectedSemester === 'fall_2025';
 
   useEffect(() => {
     const fetchActivities = async () => {
@@ -24,18 +28,20 @@ const RecentActivity: React.FC = () => {
         setIsLoading(true);
         const activityList: ActivityItem[] = [];
 
-        // Fetch check-ins
-        const checkIns = await getStudentCheckIns(studentId);
-        checkIns.slice(0, 3).forEach((checkIn, index) => {
-          activityList.push({
-            id: `checkin-${index}`,
-            type: 'check-in',
-            title: 'Daily check-in completed',
-            description: '+10 points',
-            timestamp: checkIn.created_at,
-            points: 10
+        // Fetch check-ins (hide for Fall semester)
+        if (!isFallSemester) {
+          const checkIns = await getStudentCheckIns(studentId);
+          checkIns.slice(0, 3).forEach((checkIn, index) => {
+            activityList.push({
+              id: `checkin-${index}`,
+              type: 'check-in',
+              title: 'Daily check-in completed',
+              description: '+10 points',
+              timestamp: checkIn.created_at,
+              points: 10
+            });
           });
-        });
+        }
 
         // Fetch reviews
         try {
@@ -66,7 +72,7 @@ const RecentActivity: React.FC = () => {
     };
 
     fetchActivities();
-  }, [studentId]);
+  }, [studentId, selectedSemester]);
 
   const formatTimeAgo = (timestamp: string) => {
     const now = new Date();

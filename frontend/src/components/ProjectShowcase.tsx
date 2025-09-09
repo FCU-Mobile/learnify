@@ -1,24 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Github, Calendar, User, BookOpen, GraduationCap, Image as ImageIcon, ExternalLink, X, ZoomIn, Heart } from 'lucide-react';
-import { getPublicProjects, getProjectVotes, type Submission, type ProjectWithVotes } from '../lib/api';
+import { Github, Calendar, User, BookOpen, GraduationCap, Image as ImageIcon, ExternalLink, X, ZoomIn, Heart, Layers } from 'lucide-react';
+import { getPublicProjectsForSemester, getProjectVotesForSemester, type Submission, type ProjectWithVotes } from '../lib/api';
+import { useSemester } from '../contexts/SemesterContext';
 import ImageGallery from './ImageGallery';
 
 interface ProjectShowcaseProps {
-  filterType?: 'midterm' | 'final' | 'all';
+  filterType?: 'midterm' | 'final' | 'project3' | 'all';
 }
 
 const ProjectShowcase: React.FC<ProjectShowcaseProps> = ({ filterType = 'all' }) => {
+  const { selectedSemester } = useSemester();
   const [projects, setProjects] = useState<Submission[]>([]);
   const [midtermVotes, setMidtermVotes] = useState<ProjectWithVotes[]>([]);
   const [finalVotes, setFinalVotes] = useState<ProjectWithVotes[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeFilter, setActiveFilter] = useState<'all' | 'midterm' | 'final'>(filterType);
+  const [activeFilter, setActiveFilter] = useState<'all' | 'midterm' | 'final' | 'project3'>(filterType);
 
   useEffect(() => {
     fetchProjects();
-  }, []);
+  }, [selectedSemester]);
 
   const fetchProjects = async () => {
     try {
@@ -26,9 +28,9 @@ const ProjectShowcase: React.FC<ProjectShowcaseProps> = ({ filterType = 'all' })
       setError(null);
       
       const [projectsData, midtermVotesData, finalVotesData] = await Promise.all([
-        getPublicProjects(),
-        getProjectVotes('midterm').catch(() => []),
-        getProjectVotes('final').catch(() => [])
+        getPublicProjectsForSemester(selectedSemester || undefined),
+        getProjectVotesForSemester('midterm', selectedSemester || undefined).catch(() => []),
+        getProjectVotesForSemester('final', selectedSemester || undefined).catch(() => [])
       ]);
       
       setProjects(projectsData);
@@ -47,15 +49,29 @@ const ProjectShowcase: React.FC<ProjectShowcaseProps> = ({ filterType = 'all' })
   });
 
   const getProjectTypeIcon = (type: string) => {
-    return type === 'midterm' ? 
-      <BookOpen className="w-4 h-4" /> : 
-      <GraduationCap className="w-4 h-4" />;
+    switch (type) {
+      case 'midterm':
+        return <BookOpen className="w-4 h-4" />;
+      case 'final':
+        return <GraduationCap className="w-4 h-4" />;
+      case 'project3':
+        return <BookOpen className="w-4 h-4" />;
+      default:
+        return <BookOpen className="w-4 h-4" />;
+    }
   };
 
   const getProjectTypeColor = (type: string) => {
-    return type === 'midterm' ? 
-      'bg-blue-100 text-blue-800' : 
-      'bg-purple-100 text-purple-800';
+    switch (type) {
+      case 'midterm':
+        return 'bg-blue-100 text-blue-800';
+      case 'final':
+        return 'bg-purple-100 text-purple-800';
+      case 'project3':
+        return 'bg-green-100 text-green-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
   };
 
   const getVoteCount = (projectId: number, projectType: string): number => {
@@ -116,11 +132,14 @@ const ProjectShowcase: React.FC<ProjectShowcaseProps> = ({ filterType = 'all' })
       {/* Filter Tabs */}
       <div className="border-b border-gray-200">
         <nav className="flex space-x-8">
-          {['all', 'midterm', 'final'].map((filter) => (
+          {(selectedSemester === 'fall_2025' 
+            ? ['all', 'midterm', 'final', 'project3']
+            : ['all', 'midterm', 'final']
+          ).map((filter) => (
             <button
               key={filter}
               onClick={() => setActiveFilter(filter as typeof activeFilter)}
-              className={`py-2 px-1 border-b-2 font-medium text-sm capitalize transition-colors ${
+              className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
                 activeFilter === filter
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -129,7 +148,18 @@ const ProjectShowcase: React.FC<ProjectShowcaseProps> = ({ filterType = 'all' })
               <div className="flex items-center space-x-2">
                 {filter === 'midterm' && <BookOpen className="w-4 h-4" />}
                 {filter === 'final' && <GraduationCap className="w-4 h-4" />}
-                <span>{filter === 'all' ? 'All Projects' : `${filter} Projects`}</span>
+                {filter === 'project3' && <Layers className="w-4 h-4" />}
+                <span>
+                  {filter === 'all' 
+                    ? 'All Projects'
+                    : filter === 'midterm'
+                    ? selectedSemester === 'fall_2025' ? 'Project 1' : 'Midterm Projects'
+                    : filter === 'final'
+                    ? selectedSemester === 'fall_2025' ? 'Project 2' : 'Final Projects'
+                    : filter === 'project3'
+                    ? 'Project 3'
+                    : `${filter} Projects`}
+                </span>
                 <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">
                   {filter === 'all' ? projects.length : projects.filter(p => p.project_type === filter).length}
                 </span>
@@ -146,6 +176,12 @@ const ProjectShowcase: React.FC<ProjectShowcaseProps> = ({ filterType = 'all' })
           <p className="text-gray-600">
             {activeFilter === 'all' 
               ? 'No projects have been submitted yet.'
+              : activeFilter === 'midterm'
+              ? selectedSemester === 'fall_2025' ? 'No Project 1 submissions yet.' : 'No midterm projects have been submitted yet.'
+              : activeFilter === 'final'
+              ? selectedSemester === 'fall_2025' ? 'No Project 2 submissions yet.' : 'No final projects have been submitted yet.'
+              : activeFilter === 'project3'
+              ? 'No Project 3 submissions yet.'
               : `No ${activeFilter} projects have been submitted yet.`}
           </p>
         </div>
@@ -173,7 +209,15 @@ const ProjectShowcase: React.FC<ProjectShowcaseProps> = ({ filterType = 'all' })
                   </div>
                   <div className={`inline-flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium ${getProjectTypeColor(project.project_type || 'midterm')}`}>
                     {getProjectTypeIcon(project.project_type || 'midterm')}
-                    <span className="capitalize">{project.project_type || 'midterm'}</span>
+                    <span>
+                      {project.project_type === 'midterm' 
+                        ? selectedSemester === 'fall_2025' ? 'Project 1' : 'Midterm'
+                        : project.project_type === 'final'
+                        ? selectedSemester === 'fall_2025' ? 'Project 2' : 'Final'
+                        : project.project_type === 'project3'
+                        ? 'Project 3'
+                        : 'Midterm'}
+                    </span>
                   </div>
                 </div>
 

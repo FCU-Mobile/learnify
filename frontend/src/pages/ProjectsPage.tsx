@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useSemester } from '../contexts/SemesterContext';
 import ProjectSubmissionForm from '../components/ProjectSubmissionForm';
 import ProjectShowcase from '../components/ProjectShowcase';
 import { Upload, Grid3X3, Plus } from 'lucide-react';
 
 const ProjectsPage: React.FC = () => {
   const { studentId } = useAuth();
+  const { selectedSemester } = useSemester();
+  const isSummerSemester = selectedSemester === 'summer_2025';
   const [activeTab, setActiveTab] = useState<'showcase' | 'submit'>('showcase');
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -54,19 +57,21 @@ const ProjectsPage: React.FC = () => {
                   <span>Project Showcase</span>
                 </div>
               </button>
-              <button
-                onClick={() => setActiveTab('submit')}
-                className={`py-3 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'submit'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                <div className="flex items-center space-x-2">
-                  <Plus className="w-4 h-4" />
-                  <span>Submit Project</span>
-                </div>
-              </button>
+              {!isSummerSemester && (
+                <button
+                  onClick={() => setActiveTab('submit')}
+                  className={`py-3 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'submit'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center space-x-2">
+                    <Plus className="w-4 h-4" />
+                    <span>Submit Project</span>
+                  </div>
+                </button>
+              )}
             </nav>
           </div>
         </div>

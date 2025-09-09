@@ -13,6 +13,8 @@
       "mcp__filesystem__create_directory",
       "mcp__filesystem__move_file"
     ],
-    "deny": []
+    "deny": [
+      "Bash(rm:*)"
+    ]
   }
 }

@@ -291,47 +291,95 @@ const ProfilePage: React.FC = () => {
               </div>
             </div>
 
-            {/* Updated Scoring System Information */}
+            {/* Semester-Specific Scoring System Information */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mt-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">📊 Updated Scoring System</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">📊 Scoring System</h3>
               <div className="bg-gradient-to-r from-green-50 to-blue-50 p-4 rounded-lg">
-                <ul className="space-y-2 text-sm">
-                  <li className="flex items-center">
-                    <span className="w-2 h-2 bg-green-500 rounded-full mr-3"></span>
-                    <span className="text-green-600 font-semibold mr-2">Check-ins & Reviews:</span>
-                    <span className="text-gray-600">10 points each</span>
-                  </li>
-                  <li className="flex items-center">
-                    <span className="w-2 h-2 bg-blue-500 rounded-full mr-3"></span>
-                    <span className="text-blue-600 font-semibold mr-2">Midterm Projects:</span>
-                    <span className="text-gray-600">20 points each</span>
-                  </li>
-                  <li className="flex items-center">
-                    <span className="w-2 h-2 bg-blue-600 rounded-full mr-3"></span>
-                    <span className="text-blue-600 font-semibold mr-2">Final Projects:</span>
-                    <span className="text-gray-600">50 points each</span>
-                  </li>
-                  <li className="flex items-center">
-                    <span className="w-2 h-2 bg-purple-500 rounded-full mr-3"></span>
-                    <span className="text-purple-600 font-semibold mr-2">Project Notes:</span>
-                    <span className="text-gray-600">5 points per note</span>
-                  </li>
-                  <li className="flex items-center">
-                    <span className="w-2 h-2 bg-orange-500 rounded-full mr-3"></span>
-                    <span className="text-orange-600 font-semibold mr-2">Votes Cast:</span>
-                    <span className="text-gray-600">5 points per vote</span>
-                  </li>
-                  <li className="flex items-center">
-                    <span className="w-2 h-2 bg-indigo-500 rounded-full mr-3"></span>
-                    <span className="text-indigo-600 font-semibold mr-2">Quiz Points:</span>
-                    <span className="text-gray-600">5 points per correct answer</span>
-                  </li>
-                  <li className="flex items-center">
-                    <span className="w-2 h-2 bg-yellow-500 rounded-full mr-3"></span>
-                    <span className="text-yellow-600 font-semibold mr-2">🏆 Vote Winner Bonus:</span>
-                    <span className="text-gray-600">50 points (from Aug 26, 2025)</span>
-                  </li>
-                </ul>
+                {selectedSemester === 'fall_2025' ? (
+                  // Fall 2025 scoring system
+                  <div className="space-y-3">
+                    <div className="text-sm font-medium text-gray-800 mb-3">Each Project = 30% (20% Teacher + 10% Competition)</div>
+                    <ul className="space-y-2 text-sm">
+                      <li className="flex items-start">
+                        <span className="w-2 h-2 bg-blue-500 rounded-full mr-3 mt-1.5"></span>
+                        <div>
+                          <span className="text-blue-600 font-semibold">Project 1: 30%</span>
+                          <div className="text-xs text-gray-600 ml-0 mt-1">
+                            • 20% Teacher marking<br/>
+                            • 10% Competition win bonus
+                          </div>
+                        </div>
+                      </li>
+                      <li className="flex items-start">
+                        <span className="w-2 h-2 bg-blue-600 rounded-full mr-3 mt-1.5"></span>
+                        <div>
+                          <span className="text-blue-600 font-semibold">Project 2: 30%</span>
+                          <div className="text-xs text-gray-600 ml-0 mt-1">
+                            • 20% Teacher marking<br/>
+                            • 10% Competition win bonus
+                          </div>
+                        </div>
+                      </li>
+                      <li className="flex items-start">
+                        <span className="w-2 h-2 bg-purple-500 rounded-full mr-3 mt-1.5"></span>
+                        <div>
+                          <span className="text-purple-600 font-semibold">Project 3: 30%</span>
+                          <div className="text-xs text-gray-600 ml-0 mt-1">
+                            • 20% Teacher marking<br/>
+                            • 10% Competition win bonus
+                          </div>
+                        </div>
+                      </li>
+                      <li className="flex items-center pt-2 border-t border-gray-200">
+                        <span className="w-2 h-2 bg-indigo-500 rounded-full mr-3"></span>
+                        <span className="text-indigo-600 font-semibold mr-2">Quiz Points:</span>
+                        <span className="text-gray-600">10% of final grade</span>
+                      </li>
+                    </ul>
+                    <div className="text-xs text-gray-500 pt-2 border-t border-gray-200">
+                      📝 Note: Voting system for competitions will be implemented later
+                    </div>
+                  </div>
+                ) : (
+                  // Summer 2025 scoring system  
+                  <ul className="space-y-2 text-sm">
+                    <li className="flex items-center">
+                      <span className="w-2 h-2 bg-green-500 rounded-full mr-3"></span>
+                      <span className="text-green-600 font-semibold mr-2">Check-ins & Reviews:</span>
+                      <span className="text-gray-600">10 points each</span>
+                    </li>
+                    <li className="flex items-center">
+                      <span className="w-2 h-2 bg-blue-500 rounded-full mr-3"></span>
+                      <span className="text-blue-600 font-semibold mr-2">Midterm Projects:</span>
+                      <span className="text-gray-600">20 points each</span>
+                    </li>
+                    <li className="flex items-center">
+                      <span className="w-2 h-2 bg-blue-600 rounded-full mr-3"></span>
+                      <span className="text-blue-600 font-semibold mr-2">Final Projects:</span>
+                      <span className="text-gray-600">50 points each</span>
+                    </li>
+                    <li className="flex items-center">
+                      <span className="w-2 h-2 bg-purple-500 rounded-full mr-3"></span>
+                      <span className="text-purple-600 font-semibold mr-2">Project Notes:</span>
+                      <span className="text-gray-600">5 points per note</span>
+                    </li>
+                    <li className="flex items-center">
+                      <span className="w-2 h-2 bg-orange-500 rounded-full mr-3"></span>
+                      <span className="text-orange-600 font-semibold mr-2">Votes Cast:</span>
+                      <span className="text-gray-600">5 points per vote</span>
+                    </li>
+                    <li className="flex items-center">
+                      <span className="w-2 h-2 bg-indigo-500 rounded-full mr-3"></span>
+                      <span className="text-indigo-600 font-semibold mr-2">Quiz Points:</span>
+                      <span className="text-gray-600">5 points per correct answer</span>
+                    </li>
+                    <li className="flex items-center">
+                      <span className="w-2 h-2 bg-yellow-500 rounded-full mr-3"></span>
+                      <span className="text-yellow-600 font-semibold mr-2">🏆 Vote Winner Bonus:</span>
+                      <span className="text-gray-600">50 points (from Aug 26, 2025)</span>
+                    </li>
+                  </ul>
+                )}
               </div>
             </div>
 
@@ -382,8 +430,8 @@ const ProfilePage: React.FC = () => {
                           <i className="fas fa-project-diagram text-blue-600 text-sm"></i>
                         </div>
                         <div>
-                          <p className="font-medium text-gray-900">Midterm Projects</p>
-                          <p className="text-xs text-gray-500">{leaderboardData.points_breakdown.midterm_project_points / 20} submitted</p>
+                          <p className="font-medium text-gray-900">{selectedSemester === 'fall_2025' ? 'Project 1' : 'Midterm Projects'}</p>
+                          <p className="text-xs text-gray-500">{selectedSemester === 'fall_2025' ? '20% teacher + 10% competition' : `${leaderboardData.points_breakdown.midterm_project_points / 20} submitted`}</p>
                         </div>
                       </div>
                       <span className="text-lg font-bold text-blue-600">
@@ -399,8 +447,8 @@ const ProfilePage: React.FC = () => {
                           <i className="fas fa-trophy text-blue-700 text-sm"></i>
                         </div>
                         <div>
-                          <p className="font-medium text-gray-900">Final Projects</p>
-                          <p className="text-xs text-gray-500">{leaderboardData.points_breakdown.final_project_points / 50} submitted</p>
+                          <p className="font-medium text-gray-900">{selectedSemester === 'fall_2025' ? 'Project 2' : 'Final Projects'}</p>
+                          <p className="text-xs text-gray-500">{selectedSemester === 'fall_2025' ? '20% teacher + 10% competition' : `${leaderboardData.points_breakdown.final_project_points / 50} submitted`}</p>
                         </div>
                       </div>
                       <span className="text-lg font-bold text-blue-700">
@@ -416,8 +464,8 @@ const ProfilePage: React.FC = () => {
                           <i className="fas fa-sticky-note text-purple-600 text-sm"></i>
                         </div>
                         <div>
-                          <p className="font-medium text-gray-900">Project Notes</p>
-                          <p className="text-xs text-gray-500">{leaderboardData.points_breakdown.project_notes_points / 5} notes written</p>
+                          <p className="font-medium text-gray-900">{selectedSemester === 'fall_2025' ? 'Project 3' : 'Project Notes'}</p>
+                          <p className="text-xs text-gray-500">{selectedSemester === 'fall_2025' ? '20% teacher + 10% competition' : `${leaderboardData.points_breakdown.project_notes_points / 5} notes written`}</p>
                         </div>
                       </div>
                       <span className="text-lg font-bold text-purple-600">
@@ -451,7 +499,7 @@ const ProfilePage: React.FC = () => {
                         </div>
                         <div>
                           <p className="font-medium text-gray-900">Quiz Points</p>
-                          <p className="text-xs text-gray-500">{leaderboardData.points_breakdown.quiz_points / 5} correct answers</p>
+                          <p className="text-xs text-gray-500">{selectedSemester === 'fall_2025' ? '10% of final grade' : `${leaderboardData.points_breakdown.quiz_points / 5} correct answers`}</p>
                         </div>
                       </div>
                       <span className="text-lg font-bold text-indigo-600">

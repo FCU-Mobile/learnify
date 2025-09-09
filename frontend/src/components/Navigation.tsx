@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useSemester } from '../contexts/SemesterContext';
 import { getAdminStatus } from '../lib/api';
 import SemesterSwitcher from './SemesterSwitcher';
 
@@ -10,6 +11,13 @@ const Navigation: React.FC = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const location = useLocation();
   const { studentId, logout } = useAuth();
+  const { selectedSemester } = useSemester();
+  
+  // Check if current semester is Fall 2025 (hide Reviews/Feedback)
+  const isFallSemester = selectedSemester === 'fall_2025';
+  
+  // Debug log
+  console.log('Navigation: selectedSemester =', selectedSemester, ', isFallSemester =', isFallSemester);
 
   useEffect(() => {
     const checkAdminStatus = async () => {
@@ -78,16 +86,18 @@ const Navigation: React.FC = () => {
             >
               Lessons
             </Link>
-            <Link 
-              to="/reviews" 
-              className={`font-medium pb-1 transition-colors ${
-                isActive('/reviews') 
-                  ? 'text-blue-600 border-b-2 border-blue-600' 
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Reviews
-            </Link>
+            {!isFallSemester && (
+              <Link 
+                to="/reviews" 
+                className={`font-medium pb-1 transition-colors ${
+                  isActive('/reviews') 
+                    ? 'text-blue-600 border-b-2 border-blue-600' 
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Reviews
+              </Link>
+            )}
             <Link 
               to="/projects" 
               className={`font-medium pb-1 transition-colors ${
@@ -108,16 +118,18 @@ const Navigation: React.FC = () => {
             >
               Quiz
             </Link>
-            <Link 
-              to="/feedback" 
-              className={`font-medium pb-1 transition-colors ${
-                isActive('/feedback') 
-                  ? 'text-blue-600 border-b-2 border-blue-600' 
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Feedback
-            </Link>
+            {!isFallSemester && (
+              <Link 
+                to="/feedback" 
+                className={`font-medium pb-1 transition-colors ${
+                  isActive('/feedback') 
+                    ? 'text-blue-600 border-b-2 border-blue-600' 
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Feedback
+              </Link>
+            )}
             <Link 
               to="/leaderboard" 
               className={`font-medium pb-1 transition-colors ${

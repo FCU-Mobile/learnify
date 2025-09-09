@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Upload, X, Github, FileText, Image, AlertCircle, BookOpen, GraduationCap } from 'lucide-react';
+import { Upload, X, Github, FileText, Image, AlertCircle, BookOpen, GraduationCap, Layers } from 'lucide-react';
 import { uploadSubmission, type Submission } from '../lib/api';
+import { useSemester } from '../contexts/SemesterContext';
 
 interface ProjectSubmissionFormProps {
   studentId: string;
@@ -11,7 +12,13 @@ const ProjectSubmissionForm: React.FC<ProjectSubmissionFormProps> = ({
   studentId,
   onUploadSuccess
 }) => {
-  const [projectType, setProjectType] = useState<'midterm' | 'final'>('midterm');
+  const { selectedSemester } = useSemester();
+  const isFallSemester = selectedSemester === 'fall_2025';
+  
+  // For Fall semester, support 3 projects; for Summer, support 2 projects
+  const [projectType, setProjectType] = useState<'midterm' | 'final' | 'project3'>(
+    isFallSemester ? 'midterm' : 'midterm'
+  );
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [githubUrl, setGithubUrl] = useState('');
@@ -145,10 +152,17 @@ const ProjectSubmissionForm: React.FC<ProjectSubmissionFormProps> = ({
     }
   };
 
-  const getProjectTypeIcon = (type: 'midterm' | 'final') => {
-    return type === 'midterm' ? 
-      <BookOpen className="w-5 h-5" /> : 
-      <GraduationCap className="w-5 h-5" />;
+  const getProjectTypeIcon = (type: 'midterm' | 'final' | 'project3') => {
+    switch (type) {
+      case 'midterm':
+        return <BookOpen className="w-5 h-5" />;
+      case 'final':
+        return <GraduationCap className="w-5 h-5" />;
+      case 'project3':
+        return <Layers className="w-5 h-5" />;
+      default:
+        return <BookOpen className="w-5 h-5" />;
+    }
   };
 
   return (
@@ -156,7 +170,10 @@ const ProjectSubmissionForm: React.FC<ProjectSubmissionFormProps> = ({
       <div className="mb-6">
         <h3 className="text-xl font-semibold text-gray-900">Submit Project</h3>
         <p className="text-gray-600 mt-1">
-          Submit your midterm or final project to share with the class
+          {isFallSemester 
+            ? 'Submit your project to share with the class (Fall semester: 3 projects total)'
+            : 'Submit your midterm or final project to share with the class'
+          }
         </p>
       </div>
       
@@ -166,8 +183,11 @@ const ProjectSubmissionForm: React.FC<ProjectSubmissionFormProps> = ({
           <label className="block text-sm font-medium text-gray-700 mb-3">
             Project Type
           </label>
-          <div className="grid grid-cols-2 gap-3">
-            {(['midterm', 'final'] as const).map((type) => (
+          <div className={`grid gap-3 ${isFallSemester ? 'grid-cols-3' : 'grid-cols-2'}`}>
+            {(isFallSemester 
+              ? ['midterm', 'final', 'project3'] as const
+              : ['midterm', 'final'] as const
+            ).map((type) => (
               <button
                 key={type}
                 type="button"
@@ -179,7 +199,13 @@ const ProjectSubmissionForm: React.FC<ProjectSubmissionFormProps> = ({
                 }`}
               >
                 {getProjectTypeIcon(type)}
-                <span className="font-medium capitalize">{type} Project</span>
+                <span className="font-medium">
+                  {type === 'midterm' 
+                    ? isFallSemester ? 'Project 1' : 'Midterm Project'
+                    : type === 'final'
+                    ? isFallSemester ? 'Project 2' : 'Final Project'
+                    : 'Project 3'}
+                </span>
               </button>
             ))}
           </div>

@@ -4,7 +4,11 @@ import { useAuth } from '../contexts/AuthContext';
 import { getStudentCheckIns, getLeaderboard, getAllStudents } from '../lib/api';
 import type { Student, LeaderboardEntry } from '../lib/api';
 
-const WelcomeSection: React.FC = () => {
+interface WelcomeSectionProps {
+  selectedSemester?: string | null;
+}
+
+const WelcomeSection: React.FC<WelcomeSectionProps> = ({ selectedSemester }) => {
   const { studentId } = useAuth();
   const [studentData, setStudentData] = useState<Student | null>(null);
   const [checkInsCount, setCheckInsCount] = useState(0);
@@ -86,14 +90,19 @@ const WelcomeSection: React.FC = () => {
           <p className="text-blue-100 text-lg mb-6">
             {checkInsCount > 0 
               ? "Keep up the great work on your learning journey!" 
-              : "Ready to start your learning journey? Let's get started!"
+              : selectedSemester === 'fall_2025' 
+                ? "Welcome to Fall semester! View your progress below."
+                : "Ready to start your learning journey? Let's get started!"
             }
           </p>
           <div className="flex items-center space-x-6 flex-wrap gap-y-2">
-            <div className="flex items-center space-x-2">
-              <i className="fas fa-check-circle text-green-400"></i>
-              <span className="font-semibold">{checkInsCount} check-in{checkInsCount !== 1 ? 's' : ''}</span>
-            </div>
+            {/* Hide check-ins for Fall semester */}
+            {selectedSemester !== 'fall_2025' && (
+              <div className="flex items-center space-x-2">
+                <i className="fas fa-check-circle text-green-400"></i>
+                <span className="font-semibold">{checkInsCount} check-in{checkInsCount !== 1 ? 's' : ''}</span>
+              </div>
+            )}
             <div className="flex items-center space-x-2">
               <i className="fas fa-star text-yellow-400"></i>
               <span className="font-semibold">{totalMarks} points</span>

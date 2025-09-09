@@ -461,6 +461,28 @@ export const getSubmissions = async (params?: {
   return response.data.data;
 };
 
+export const getSubmissionsForSemester = async (
+  semesterCode?: string,
+  params?: {
+    student_id?: string;
+    lesson_id?: string;
+    submission_type?: string;
+  }
+): Promise<SubmissionsResponse['data']> => {
+  const headers: any = {};
+  if (semesterCode) {
+    headers['x-semester-code'] = semesterCode;
+  }
+  const response = await api.get<SubmissionsResponse>('/api/submissions', { 
+    params,
+    headers 
+  });
+  if (!response.data.success) {
+    throw new Error(response.data.error || 'Failed to fetch submissions');
+  }
+  return response.data.data;
+};
+
 export const uploadSubmission = async (formData: FormData): Promise<Submission> => {
   const response = await api.post<SubmissionUploadResponse>('/api/submissions', formData, {
     headers: {
@@ -549,6 +571,31 @@ export const getPublicProjects = async (params?: {
   offset?: number;
 }): Promise<Submission[]> => {
   const response = await api.get<SubmissionsResponse>('/api/submissions/projects/public', { params });
+  if (!response.data.success) {
+    throw new Error(response.data.error || 'Failed to fetch public projects');
+  }
+  return response.data.data.submissions;
+};
+
+// Get public projects for showcase with semester filter
+export const getPublicProjectsForSemester = async (
+  semesterCode?: string,
+  params?: {
+    project_type?: 'midterm' | 'final';
+    limit?: number;
+    offset?: number;
+  }
+): Promise<Submission[]> => {
+  const headers: any = {};
+  
+  if (semesterCode) {
+    headers['x-semester-code'] = semesterCode;
+  }
+  
+  const response = await api.get<SubmissionsResponse>('/api/submissions/projects/public', { 
+    params,
+    headers 
+  });
   if (!response.data.success) {
     throw new Error(response.data.error || 'Failed to fetch public projects');
   }
@@ -942,6 +989,24 @@ export interface VoteResponse {
 // Voting API functions
 export const getProjectVotes = async (projectType: 'midterm' | 'final'): Promise<ProjectWithVotes[]> => {
   const response = await api.get<ProjectVotesResponse>(`/api/voting/projects/${projectType}/votes`);
+  if (!response.data.success) {
+    throw new Error('Failed to fetch project votes');
+  }
+  return response.data.projects;
+};
+
+// Get project votes with semester filter
+export const getProjectVotesForSemester = async (
+  projectType: 'midterm' | 'final', 
+  semesterCode?: string
+): Promise<ProjectWithVotes[]> => {
+  const headers: any = {};
+  
+  if (semesterCode) {
+    headers['x-semester-code'] = semesterCode;
+  }
+  
+  const response = await api.get<ProjectVotesResponse>(`/api/voting/projects/${projectType}/votes`, { headers });
   if (!response.data.success) {
     throw new Error('Failed to fetch project votes');
   }

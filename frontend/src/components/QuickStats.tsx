@@ -2,10 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { getStudentCheckIns, getLeaderboard, getStudentReviews, checkInStudent } from '../lib/api';
+import { useSemester } from '../contexts/SemesterContext';
+import { getStudentCheckInsForSemester, getLeaderboard, getStudentReviews, checkInStudent } from '../lib/api';
 
 const QuickStats: React.FC = () => {
   const { studentId } = useAuth();
+  const { selectedSemester } = useSemester();
   const [checkInsCount, setCheckInsCount] = useState(0);
   const [totalMarks, setTotalMarks] = useState(0);
   const [reviewsCount, setReviewsCount] = useState(0);
@@ -18,7 +20,7 @@ const QuickStats: React.FC = () => {
 
     try {
       // Fetch check-ins
-      const checkIns = await getStudentCheckIns(studentId);
+      const checkIns = await getStudentCheckInsForSemester(studentId, selectedSemester);
       setCheckInsCount(checkIns.length);
 
       // Check if user has checked in today
@@ -62,7 +64,7 @@ const QuickStats: React.FC = () => {
     };
 
     fetchUserStats();
-  }, [studentId]);
+  }, [studentId, selectedSemester]);
 
   const handleCheckIn = async () => {
     if (!studentId || hasCheckedInToday || isCheckingIn) return;

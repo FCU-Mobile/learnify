@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, FileText, Github, Image, Download, Eye, Trash2, Filter } from 'lucide-react';
-import { getSubmissions, deleteSubmission, getAllStudents, type Submission } from '../lib/api';
+import { getSubmissionsForSemester, deleteSubmission, getAllStudents, type Submission } from '../lib/api';
+import { useSemester } from '../contexts/SemesterContext';
 
 interface SubmissionsListProps {
   studentId?: string;
@@ -13,6 +14,7 @@ const SubmissionsList: React.FC<SubmissionsListProps> = ({
   lessonId,
   showFilters = true
 }) => {
+  const { selectedSemester } = useSemester();
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +39,7 @@ const SubmissionsList: React.FC<SubmissionsListProps> = ({
       if (lessonId) params.lesson_id = lessonId;
       if (selectedType !== 'all') params.submission_type = selectedType;
 
-      const data = await getSubmissions(params);
+      const data = await getSubmissionsForSemester(selectedSemester || undefined, params);
       setSubmissions(data.submissions);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Network error while fetching submissions');
@@ -64,7 +66,7 @@ const SubmissionsList: React.FC<SubmissionsListProps> = ({
   useEffect(() => {
     fetchSubmissions();
     fetchStudents();
-  }, [studentId, lessonId, selectedType, selectedStudent]);
+  }, [selectedSemester, studentId, lessonId, selectedType, selectedStudent]);
 
   const getSubmissionIcon = (type: string) => {
     switch (type) {
