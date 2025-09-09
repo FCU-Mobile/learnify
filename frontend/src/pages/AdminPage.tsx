@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useSemester } from '../contexts/SemesterContext';
 import { getAdminStatus, getAllStudentsAsAdmin, deleteStudent, getAllLessons as getAllLessonsAPI, updateLessonStatus, fixQuizScores, calculateBonusPoints, getFeedbackAnalytics, getAllFeedback, setCurrentSemester, getSemesterStats } from '../lib/api';
 import type { Student, AdminStatus, Lesson, QuizScoreFixResponse, BonusCalculationResponse, FeedbackAnalytics, StudentFeedback, SemesterStats } from '../lib/api';
 import SemesterSelector from '../components/SemesterSelector';
 
 const AdminPage: React.FC = () => {
   const { studentId } = useAuth();
+  const { selectedSemester } = useSemester();
   const navigate = useNavigate();
+  
+  // Check if current semester is Fall 2025 (hide System/Feedback tabs)
+  const isFallSemester = selectedSemester === 'fall_2025';
   const [adminStatus, setAdminStatus] = useState<AdminStatus | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
@@ -27,8 +32,6 @@ const AdminPage: React.FC = () => {
   const [allFeedback, setAllFeedback] = useState<StudentFeedback[]>([]);
   const [feedbackLoading, setFeedbackLoading] = useState(false);
   
-  // Semester state
-  const [selectedSemester, setSelectedSemester] = useState<string | null>(null);
   const [semesterStats, setSemesterStats] = useState<SemesterStats | null>(null);
   const [semesterStatsLoading, setSemesterStatsLoading] = useState(false);
 
@@ -47,10 +50,6 @@ const AdminPage: React.FC = () => {
         // Get all students
         const allStudents = await getAllStudentsAsAdmin(studentId);
         setStudents(allStudents);
-
-        // Get all lessons
-        const allLessons = await getAllLessonsAPI();
-        setLessons(allLessons);
       } catch (error: any) {
         setError(error.message || 'Failed to load admin data');
       } finally {
@@ -105,6 +104,35 @@ const AdminPage: React.FC = () => {
 
     loadSemesterStats();
   }, [selectedSemester]);
+
+  // Load lessons when selected semester changes
+  useEffect(() => {
+    if (!selectedSemester) {
+      setLessons([]); // Clear lessons when no semester selected
+      return;
+    }
+
+    const loadLessonsForSemester = async () => {
+      try {
+        console.log('Admin loading lessons for semester:', selectedSemester);
+        const allLessons = await getAllLessonsAPI({ semester: selectedSemester });
+        console.log(`Admin loaded ${allLessons.length} lessons for ${selectedSemester}`);
+        setLessons(allLessons);
+      } catch (error: any) {
+        console.error('Error loading lessons for semester:', error);
+        setLessons([]);
+      }
+    };
+
+    loadLessonsForSemester();
+  }, [selectedSemester]);
+
+  // Auto-switch to available tab if current tab is hidden for Fall semester
+  useEffect(() => {
+    if (isFallSemester && (activeTab === 'system' || activeTab === 'feedback')) {
+      setActiveTab('students');
+    }
+  }, [isFallSemester, activeTab]);
 
   const handleSetCurrentSemester = async (semesterCode: string) => {
     if (!studentId) return;
@@ -254,14 +282,8 @@ const AdminPage: React.FC = () => {
               </div>
             </div>
             
-            {/* Semester Selector and Controls */}
+            {/* Semester Controls */}
             <div className="flex items-center space-x-4">
-              <SemesterSelector
-                selectedSemester={selectedSemester}
-                onSemesterChange={setSelectedSemester}
-                className="text-white"
-                showLabel={true}
-              />
               {selectedSemester && (
                 <button
                   onClick={() => handleSetCurrentSemester(selectedSemester)}
@@ -406,28 +428,32 @@ const AdminPage: React.FC = () => {
                 <i className="fas fa-book mr-2"></i>
                 Lessons ({lessons.length})
               </button>
-              <button
-                onClick={() => setActiveTab('system')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                  activeTab === 'system'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                <i className="fas fa-cogs mr-2"></i>
-                System
-              </button>
-              <button
-                onClick={() => setActiveTab('feedback')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                  activeTab === 'feedback'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                <i className="fas fa-comments mr-2"></i>
-                Feedback
-              </button>
+              {!isFallSemester && (
+                <button
+                  onClick={() => setActiveTab('system')}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+                    activeTab === 'system'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <i className="fas fa-cogs mr-2"></i>
+                  System
+                </button>
+              )}
+              {!isFallSemester && (
+                <button
+                  onClick={() => setActiveTab('feedback')}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+                    activeTab === 'feedback'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <i className="fas fa-comments mr-2"></i>
+                  Feedback
+                </button>
+              )}
             </nav>
           </div>
         </div>
@@ -583,29 +609,47 @@ const AdminPage: React.FC = () => {
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="p-6 border-b border-gray-100">
               <h2 className="text-lg font-semibold text-gray-900">Lesson Management</h2>
-              <p className="text-sm text-gray-600 mt-1">Update lesson status • Mark lessons as normal, skipped, or cancelled</p>
+              <p className="text-sm text-gray-600 mt-1">
+                Update lesson status • Mark lessons as normal, skipped, or cancelled
+                {selectedSemester && (
+                  <span className="font-medium text-blue-600"> • Showing {selectedSemester} semester</span>
+                )}
+              </p>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Lesson
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Date
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {lessons.sort((a, b) => a.lesson_number - b.lesson_number).map((lesson) => (
+            {!selectedSemester ? (
+              <div className="p-12 text-center text-gray-500">
+                <div className="text-4xl mb-4">📚</div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Select a Semester</h3>
+                <p className="text-sm">Choose a semester from the navigation to view and manage its lessons.</p>
+              </div>
+            ) : lessons.length === 0 ? (
+              <div className="p-12 text-center text-gray-500">
+                <div className="text-4xl mb-4">📚</div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No Lessons Found</h3>
+                <p className="text-sm">No lessons are available for the selected semester.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Lesson
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Date
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {lessons.sort((a, b) => a.lesson_number - b.lesson_number).map((lesson) => (
                     <tr key={lesson.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
@@ -678,15 +722,16 @@ const AdminPage: React.FC = () => {
                         </div>
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 
         {/* System Tab */}
-        {activeTab === 'system' && (
+        {!isFallSemester && activeTab === 'system' && (
           <div className="space-y-6">
             {/* Quiz Score Fix Section */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -966,7 +1011,7 @@ const AdminPage: React.FC = () => {
         )}
 
         {/* Feedback Tab */}
-        {activeTab === 'feedback' && (
+        {!isFallSemester && activeTab === 'feedback' && (
           <div className="space-y-6">
             {/* Feedback Overview Section */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
