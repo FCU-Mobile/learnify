@@ -6,10 +6,15 @@ const router = Router();
 /**
  * POST /api/auto/check-in
  * Auto-registration check-in - creates student on first use
+ * Headers:
+ * - x-semester-code: Code of specific semester e.g. 'fall_2025' (optional)
  */
 router.post('/auto/check-in', async (req: Request, res: Response) => {
   try {
     const { student_id, full_name } = req.body;
+    
+    // Get semester from header
+    const semester_code = req.headers['x-semester-code'] as string;
     
     if (!student_id || typeof student_id !== 'string') {
       return res.status(400).json({
@@ -36,14 +41,49 @@ router.post('/auto/check-in', async (req: Request, res: Response) => {
       });
     }
 
-    // Create check-in record
+    // Get semester ID for assignment
+    let semesterId: string | null = null;
+    
+    if (semester_code) {
+      // Look up semester by code
+      const { data: semesterData, error: semesterError } = await supabaseAdmin
+        .from('semesters')
+        .select('id')
+        .eq('code', semester_code)
+        .eq('is_active', true)
+        .single();
+      
+      if (!semesterError && semesterData) {
+        semesterId = semesterData.id;
+      }
+    } else {
+      // Get current semester
+      const { data: currentSemesterData, error: currentSemesterError } = await supabaseAdmin
+        .from('semesters')
+        .select('id')
+        .eq('is_current', true)
+        .eq('is_active', true)
+        .single();
+      
+      if (!currentSemesterError && currentSemesterData) {
+        semesterId = currentSemesterData.id;
+      }
+    }
+
+    // Create check-in record with semester assignment
+    const insertData: any = {
+      student_id: student.student_id,
+      student_uuid: student.id,
+      created_at: new Date().toISOString()
+    };
+    
+    if (semesterId) {
+      insertData.semester_id = semesterId;
+    }
+    
     const { data: checkIn, error: checkInError } = await supabaseAdmin
       .from('student_check_ins')
-      .insert({
-        student_id: student.student_id,
-        student_uuid: student.id,
-        created_at: new Date().toISOString()
-      })
+      .insert(insertData)
       .select('id, student_id, created_at')
       .single();
 
@@ -82,11 +122,19 @@ router.post('/auto/check-in', async (req: Request, res: Response) => {
 /**
  * GET /api/auto/check-ins/:student_id
  * Get check-in history for a student
+ * Headers:
+ * - x-semester-code: Code of specific semester e.g. 'fall_2025' (optional)
+ * Query parameters:
+ * - limit: Number of entries to return (default 10)
+ * - offset: Number of entries to skip (default 0)
  */
 router.get('/auto/check-ins/:student_id', async (req: Request, res: Response) => {
   try {
     const { student_id } = req.params;
     const { limit = 10, offset = 0 } = req.query;
+    
+    // Get semester from header
+    const semester_code = req.headers['x-semester-code'] as string;
     
     // Look up student
     const { data: student, error: studentError } = await supabaseAdmin
@@ -103,11 +151,37 @@ router.get('/auto/check-ins/:student_id', async (req: Request, res: Response) =>
       });
     }
 
-    // Get check-ins
-    const { data: checkIns, error: checkInError } = await supabaseAdmin
+    // Get semester ID if filtering by semester
+    let targetSemesterId: string | null = null;
+    
+    if (semester_code) {
+      if (semester_code.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+        targetSemesterId = semester_code;
+      } else {
+        const { data: semesterData } = await supabaseAdmin
+          .from('semesters')
+          .select('id')
+          .eq('code', semester_code)
+          .eq('is_active', true)
+          .single();
+        
+        if (semesterData) {
+          targetSemesterId = semesterData.id;
+        }
+      }
+    }
+
+    // Build check-ins query with optional semester filter
+    let checkInsQuery = supabaseAdmin
       .from('student_check_ins')
       .select('id, created_at')
-      .eq('student_id', student_id)
+      .eq('student_id', student_id);
+    
+    if (targetSemesterId) {
+      checkInsQuery = checkInsQuery.eq('semester_id', targetSemesterId);
+    }
+    
+    const { data: checkIns, error: checkInError } = await checkInsQuery
       .order('created_at', { ascending: false })
       .range(Number(offset), Number(offset) + Number(limit) - 1);
 
@@ -119,11 +193,17 @@ router.get('/auto/check-ins/:student_id', async (req: Request, res: Response) =>
       });
     }
 
-    // Get total count
-    const { count, error: countError } = await supabaseAdmin
+    // Build count query with optional semester filter
+    let countQuery = supabaseAdmin
       .from('student_check_ins')
       .select('*', { count: 'exact', head: true })
       .eq('student_id', student_id);
+    
+    if (targetSemesterId) {
+      countQuery = countQuery.eq('semester_id', targetSemesterId);
+    }
+    
+    const { count, error: countError } = await countQuery;
 
     res.status(200).json({
       success: true,

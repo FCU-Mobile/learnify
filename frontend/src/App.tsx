@@ -1,6 +1,7 @@
 
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { SemesterProvider } from './contexts/SemesterContext';
 import Navigation from './components/Navigation';
 import LoginScreen from './components/LoginScreen';
 import HomePage from './pages/HomePage';
@@ -49,7 +50,9 @@ function AppRoutes() {
 function App() {
   return (
     <AuthProvider>
-      <AppRoutes />
+      <SemesterProvider>
+        <AppRoutes />
+      </SemesterProvider>
     </AuthProvider>
   );
 }

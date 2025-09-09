@@ -1152,4 +1152,201 @@ export const getFeedbackAnalytics = async (adminStudentId: string): Promise<Feed
   return response.data;
 };
 
+// Semester interfaces
+export interface Semester {
+  id: string;
+  code: string;
+  name: string;
+  start_date: string;
+  end_date: string;
+  is_current: boolean;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SemesterConfig {
+  id: string;
+  semester_id: string;
+  check_in_points: number;
+  review_points: number;
+  midterm_project_points: number;
+  final_project_points: number;
+  note_points: number;
+  vote_points: number;
+  bonus_points: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SemesterStats {
+  total_check_ins: number;
+  total_submissions: number;
+  total_votes: number;
+  total_notes: number;
+}
+
+export interface SemestersResponse {
+  success: boolean;
+  data: {
+    semesters: Semester[];
+  };
+}
+
+export interface CurrentSemesterResponse {
+  success: boolean;
+  data: {
+    semester: Semester;
+  };
+}
+
+export interface SemesterResponse {
+  success: boolean;
+  data: {
+    semester: Semester;
+  };
+}
+
+export interface SemesterConfigResponse {
+  success: boolean;
+  data: {
+    semester: Semester;
+    config: SemesterConfig;
+  };
+}
+
+export interface SemesterStatsResponse {
+  success: boolean;
+  data: {
+    semester: Semester;
+    stats: SemesterStats;
+  };
+}
+
+// Semester API functions
+
+// Get all semesters
+export const getSemesters = async (): Promise<SemestersResponse> => {
+  const response = await api.get<SemestersResponse>('/api/semesters');
+  return response.data;
+};
+
+// Get current semester
+export const getCurrentSemester = async (): Promise<CurrentSemesterResponse> => {
+  const response = await api.get<CurrentSemesterResponse>('/api/semesters/current');
+  return response.data;
+};
+
+// Get semester by code
+export const getSemester = async (code: string): Promise<SemesterResponse> => {
+  const response = await api.get<SemesterResponse>(`/api/semesters/${code}`);
+  return response.data;
+};
+
+// Set semester as current (admin only)
+export const setCurrentSemester = async (code: string, adminStudentId: string): Promise<{success: boolean; message: string}> => {
+  const response = await api.post<{success: boolean; message: string}>(`/api/semesters/${code}/set-current`, {
+    admin_student_id: adminStudentId
+  });
+  return response.data;
+};
+
+// Get semester configuration
+export const getSemesterConfig = async (code: string): Promise<SemesterConfigResponse> => {
+  const response = await api.get<SemesterConfigResponse>(`/api/semesters/${code}/config`);
+  return response.data;
+};
+
+// Get semester statistics
+export const getSemesterStats = async (code: string): Promise<SemesterStatsResponse> => {
+  const response = await api.get<SemesterStatsResponse>(`/api/semesters/${code}/stats`);
+  return response.data;
+};
+
+// Updated API functions with semester support
+
+// Get leaderboard with semester filter
+export const getLeaderboardForSemester = async (
+  semesterCode?: string,
+  limit: number = 50, 
+  offset: number = 0
+): Promise<LeaderboardEntry[]> => {
+  const params = { limit, offset };
+  const headers: any = {};
+  
+  if (semesterCode) {
+    headers['x-semester-code'] = semesterCode;
+  }
+  
+  const response = await api.get<{success: boolean, data: {leaderboard: LeaderboardEntry[]}}>('/api/leaderboard', {
+    params,
+    headers
+  });
+  if (!response.data.success || !response.data.data.leaderboard) {
+    throw new Error('Failed to fetch leaderboard');
+  }
+  return response.data.data.leaderboard;
+};
+
+// Get student leaderboard data with semester filter
+export const getStudentLeaderboardDataForSemester = async (
+  studentId: string, 
+  semesterCode?: string
+): Promise<LeaderboardEntry> => {
+  const headers: any = {};
+  
+  if (semesterCode) {
+    headers['x-semester-code'] = semesterCode;
+  }
+  
+  const response = await api.get<{success: boolean, data: {student: LeaderboardEntry}}>(
+    `/api/leaderboard/student/${studentId}`, 
+    { headers }
+  );
+  if (!response.data.success || !response.data.data.student) {
+    throw new Error('Failed to fetch student leaderboard data');
+  }
+  return response.data.data.student;
+};
+
+// Get student check-ins with semester filter
+export const getStudentCheckInsForSemester = async (
+  studentId: string, 
+  semesterCode?: string
+): Promise<StudentCheckIn[]> => {
+  const headers: any = {};
+  
+  if (semesterCode) {
+    headers['x-semester-code'] = semesterCode;
+  }
+  
+  const response = await api.get<{success: boolean, data: {check_ins: StudentCheckIn[]}}>(
+    `/api/auto/check-ins/${studentId}`, 
+    { headers }
+  );
+  return response.data.data.check_ins;
+};
+
+// Check in with semester assignment
+export const checkInStudentForSemester = async (
+  data: CheckInRequest,
+  semesterCode?: string
+): Promise<CheckInResponse> => {
+  try {
+    const headers: any = {};
+    
+    if (semesterCode) {
+      headers['x-semester-code'] = semesterCode;
+    }
+    
+    const response = await api.post<CheckInResponse>('/api/auto/check-in', data, { headers });
+    return response.data;
+  } catch (error: any) {
+    if (error?.response?.status === 403 && error?.response?.data?.error === 'STUDENT_NOT_REGISTERED') {
+      throw new Error(error.response.data.message || 'Student ID not registered. Please contact your instructor.');
+    }
+    throw error;
+  }
+};
+
 export default api;

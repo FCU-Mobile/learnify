@@ -19,6 +19,7 @@ import projectNotesRouter from './routes/projectNotes';
 import quizRouter from './routes/quiz';
 import votingRouter from './routes/voting';
 import feedbackRouter from './routes/feedback';
+import semestersRouter from './routes/semesters';
 import { config } from './config/supabase';
 
 // Load environment variables
@@ -31,7 +32,7 @@ app.use(helmet());
 app.use(cors({
   origin: '*', // Allow all origins
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With', 'x-student-id']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With', 'x-student-id', 'x-semester-code']
 }));
 
 // Body parsing middleware
@@ -71,6 +72,7 @@ app.use('/api/project-notes', projectNotesRouter);
 app.use('/api/quiz', quizRouter);
 app.use('/api/voting', votingRouter);
 app.use('/api/feedback', feedbackRouter);
+app.use('/api/semesters', semestersRouter);
 
 // Root endpoint
 app.get('/', (req: Request, res: Response) => {

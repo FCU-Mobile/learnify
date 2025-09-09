@@ -1,9 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
-import { getLeaderboard } from '../lib/api';
+import { getLeaderboardForSemester } from '../lib/api';
 import type { LeaderboardEntry } from '../lib/api';
 
-const Leaderboard: React.FC = () => {
+interface LeaderboardProps {
+  semesterCode?: string | null;
+}
+
+const Leaderboard: React.FC<LeaderboardProps> = ({ semesterCode }) => {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -12,7 +16,7 @@ const Leaderboard: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const leaderboardData = await getLeaderboard();
+      const leaderboardData = await getLeaderboardForSemester(semesterCode || undefined);
       setLeaderboard(leaderboardData);
     } catch (err) {
       setError('Failed to fetch leaderboard');
@@ -24,7 +28,7 @@ const Leaderboard: React.FC = () => {
 
   useEffect(() => {
     fetchLeaderboard();
-  }, []);
+  }, [semesterCode]);
 
   const getInitials = (name: string): string => {
     return name

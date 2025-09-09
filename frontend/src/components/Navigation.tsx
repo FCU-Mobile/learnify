@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getAdminStatus } from '../lib/api';
+import SemesterSwitcher from './SemesterSwitcher';
 
 const Navigation: React.FC = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -130,7 +131,10 @@ const Navigation: React.FC = () => {
           </div>
 
           {/* User Profile & Actions */}
-          <div className="flex items-center">
+          <div className="flex items-center space-x-4">
+            {/* Semester Switcher */}
+            <SemesterSwitcher />
+            
             {/* User Profile Dropdown */}
             <div className="relative">
               <button 

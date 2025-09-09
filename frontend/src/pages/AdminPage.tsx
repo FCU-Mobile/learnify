@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getAdminStatus, getAllStudentsAsAdmin, deleteStudent, getAllLessons as getAllLessonsAPI, updateLessonStatus, fixQuizScores, calculateBonusPoints, getFeedbackAnalytics, getAllFeedback } from '../lib/api';
-import type { Student, AdminStatus, Lesson, QuizScoreFixResponse, BonusCalculationResponse, FeedbackAnalytics, StudentFeedback } from '../lib/api';
+import { getAdminStatus, getAllStudentsAsAdmin, deleteStudent, getAllLessons as getAllLessonsAPI, updateLessonStatus, fixQuizScores, calculateBonusPoints, getFeedbackAnalytics, getAllFeedback, setCurrentSemester, getSemesterStats } from '../lib/api';
+import type { Student, AdminStatus, Lesson, QuizScoreFixResponse, BonusCalculationResponse, FeedbackAnalytics, StudentFeedback, SemesterStats } from '../lib/api';
+import SemesterSelector from '../components/SemesterSelector';
 
 const AdminPage: React.FC = () => {
   const { studentId } = useAuth();
@@ -25,6 +26,11 @@ const AdminPage: React.FC = () => {
   const [feedbackAnalytics, setFeedbackAnalytics] = useState<FeedbackAnalytics | null>(null);
   const [allFeedback, setAllFeedback] = useState<StudentFeedback[]>([]);
   const [feedbackLoading, setFeedbackLoading] = useState(false);
+  
+  // Semester state
+  const [selectedSemester, setSelectedSemester] = useState<string | null>(null);
+  const [semesterStats, setSemesterStats] = useState<SemesterStats | null>(null);
+  const [semesterStatsLoading, setSemesterStatsLoading] = useState(false);
 
   useEffect(() => {
     if (!studentId) return;
@@ -80,6 +86,38 @@ const AdminPage: React.FC = () => {
 
     loadFeedbackData();
   }, [studentId, activeTab]);
+
+  // Load semester stats when semester changes
+  useEffect(() => {
+    if (!selectedSemester) return;
+
+    const loadSemesterStats = async () => {
+      try {
+        setSemesterStatsLoading(true);
+        const statsResponse = await getSemesterStats(selectedSemester);
+        setSemesterStats(statsResponse.data.stats);
+      } catch (error: any) {
+        console.error('Error loading semester stats:', error);
+      } finally {
+        setSemesterStatsLoading(false);
+      }
+    };
+
+    loadSemesterStats();
+  }, [selectedSemester]);
+
+  const handleSetCurrentSemester = async (semesterCode: string) => {
+    if (!studentId) return;
+    
+    try {
+      const response = await setCurrentSemester(semesterCode, studentId);
+      alert(`✅ ${response.message}`);
+      // Refresh the page to show updated current semester
+      window.location.reload();
+    } catch (error: any) {
+      alert(`❌ ${error.message || 'Failed to set current semester'}`);
+    }
+  };
 
   const handleDeleteStudent = async (targetStudentId: string) => {
     if (!studentId || !window.confirm(`Are you sure you want to delete student ${targetStudentId}? This action cannot be undone.`)) {
@@ -203,17 +241,75 @@ const AdminPage: React.FC = () => {
       {/* Header */}
       <div className="bg-gradient-to-r from-red-600 to-red-800 text-white">
         <div className="max-w-7xl mx-auto px-4 py-8">
-          <div className="flex items-center space-x-3 mb-2">
-            <div className="w-12 h-12 bg-red-500 rounded-lg flex items-center justify-center">
-              <i className="fas fa-shield-alt text-white text-xl"></i>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 bg-red-500 rounded-lg flex items-center justify-center">
+                <i className="fas fa-shield-alt text-white text-xl"></i>
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+                <p className="text-red-100">
+                  Welcome, {adminStatus?.admin.full_name} ({adminStatus?.admin.student_id})
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-              <p className="text-red-100">
-                Welcome, {adminStatus?.admin.full_name} ({adminStatus?.admin.student_id})
-              </p>
+            
+            {/* Semester Selector and Controls */}
+            <div className="flex items-center space-x-4">
+              <SemesterSelector
+                selectedSemester={selectedSemester}
+                onSemesterChange={setSelectedSemester}
+                className="text-white"
+                showLabel={true}
+              />
+              {selectedSemester && (
+                <button
+                  onClick={() => handleSetCurrentSemester(selectedSemester)}
+                  className="bg-red-500 hover:bg-red-400 text-white px-3 py-1.5 rounded-md text-sm transition-colors"
+                  title="Set this semester as current"
+                >
+                  Set as Current
+                </button>
+              )}
             </div>
           </div>
+          
+          {/* Semester Stats */}
+          {selectedSemester && (
+            <div className="mt-6 bg-red-500/20 rounded-lg p-4">
+              <h3 className="text-lg font-semibold mb-3">Semester Statistics</h3>
+              {semesterStatsLoading ? (
+                <div className="animate-pulse">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {[1, 2, 3, 4].map(i => (
+                      <div key={i} className="h-16 bg-white/20 rounded"></div>
+                    ))}
+                  </div>
+                </div>
+              ) : semesterStats ? (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold">{semesterStats.total_check_ins}</div>
+                    <div className="text-red-100 text-sm">Check-ins</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold">{semesterStats.total_submissions}</div>
+                    <div className="text-red-100 text-sm">Submissions</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold">{semesterStats.total_votes}</div>
+                    <div className="text-red-100 text-sm">Votes</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold">{semesterStats.total_notes}</div>
+                    <div className="text-red-100 text-sm">Notes</div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-red-100">No stats available for this semester</div>
+              )}
+            </div>
+          )}
           <div className="flex flex-wrap gap-2">
             {adminStatus?.permissions.map((permission) => (
               <span

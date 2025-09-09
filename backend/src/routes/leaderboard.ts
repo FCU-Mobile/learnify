@@ -23,9 +23,31 @@ interface LeaderboardEntry {
 }
 
 /**
- * Shared function to get leaderboard data
+ * Shared function to get leaderboard data with optional semester filtering
  */
-async function getLeaderboardData(): Promise<LeaderboardEntry[]> {
+async function getLeaderboardData(semesterId?: string): Promise<LeaderboardEntry[]> {
+  // Get semester ID if specified by code
+  let targetSemesterId: string | null = null;
+  
+  if (semesterId) {
+    // If it looks like a UUID, use it directly, otherwise treat as semester code
+    if (semesterId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+      targetSemesterId = semesterId;
+    } else {
+      // Look up semester by code
+      const { data: semesterData } = await supabase
+        .from('semesters')
+        .select('id')
+        .eq('code', semesterId)
+        .eq('is_active', true)
+        .single();
+      
+      if (semesterData) {
+        targetSemesterId = semesterData.id;
+      }
+    }
+  }
+
   // Get all students
   const { data: studentsData, error: studentsError } = await supabase
     .from('students')
@@ -44,9 +66,17 @@ async function getLeaderboardData(): Promise<LeaderboardEntry[]> {
   // Get points breakdown for each student using the database function
   const leaderboardEntries: Omit<LeaderboardEntry, 'rank'>[] = await Promise.all(
     studentsData.map(async (student) => {
-      // Get points breakdown from database function
+      // Get points breakdown from database function with optional semester filter
+      const rpcParams: { p_student_id: string; p_semester_id?: string } = { 
+        p_student_id: student.student_id 
+      };
+      
+      if (targetSemesterId) {
+        rpcParams.p_semester_id = targetSemesterId;
+      }
+      
       const { data: pointsData, error: pointsError } = await supabase
-        .rpc('get_student_points_breakdown', { p_student_id: student.student_id });
+        .rpc('get_student_points_breakdown', rpcParams);
 
       if (pointsError || !pointsData || pointsData.length === 0) {
         console.error('Error getting points breakdown for student:', student.student_id, pointsError);
@@ -73,11 +103,17 @@ async function getLeaderboardData(): Promise<LeaderboardEntry[]> {
 
       const breakdown = pointsData[0];
       
-      // Get check-ins data for latest check-in info
-      const { data: checkInsData } = await supabase
+      // Get check-ins data for latest check-in info (filtered by semester if specified)
+      let checkInsQuery = supabase
         .from('student_check_ins')
         .select('created_at')
-        .eq('student_id', student.student_id)
+        .eq('student_id', student.student_id);
+      
+      if (targetSemesterId) {
+        checkInsQuery = checkInsQuery.eq('semester_id', targetSemesterId);
+      }
+      
+      const { data: checkInsData } = await checkInsQuery
         .order('created_at', { ascending: false });
 
       const totalCheckIns = checkInsData?.length || 0;
@@ -144,15 +180,23 @@ async function getLeaderboardData(): Promise<LeaderboardEntry[]> {
 /**
  * GET /api/leaderboard
  * Get ranked leaderboard of all students based on their current marks
+ * Headers:
+ * - x-semester-code: Code of specific semester e.g. 'fall_2025' (optional)
+ * Query parameters:
+ * - limit: Number of entries to return (default 50, max 100)
+ * - offset: Number of entries to skip (default 0)
  */
 router.get('/leaderboard', async (req: Request, res: Response) => {
   try {
     // Get query parameters
     const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
     const offset = Math.max(parseInt(req.query.offset as string) || 0, 0);
+    
+    // Get semester from header
+    const semesterCode = req.headers['x-semester-code'] as string;
 
     // Get leaderboard data using shared function
-    const rankedEntries = await getLeaderboardData();
+    const rankedEntries = await getLeaderboardData(semesterCode);
 
     // Apply pagination
     const paginatedEntries = rankedEntries.slice(offset, offset + limit);
@@ -184,11 +228,18 @@ router.get('/leaderboard', async (req: Request, res: Response) => {
 /**
  * GET /api/leaderboard/student/:student_id
  * Get specific student's ranking and nearby competitors
+ * Headers:
+ * - x-semester-code: Code of specific semester e.g. 'fall_2025' (optional)
+ * Query parameters:
+ * - context: Number of students above/below to include (default 5, max 20)
  */
 router.get('/leaderboard/student/:student_id', async (req: Request, res: Response) => {
   try {
     const { student_id } = req.params;
     const context = Math.min(parseInt(req.query.context as string) || 5, 20); // Students above/below
+    
+    // Get semester from header
+    const semesterCode = req.headers['x-semester-code'] as string;
 
     if (!student_id) {
       return res.status(400).json({
@@ -199,7 +250,7 @@ router.get('/leaderboard/student/:student_id', async (req: Request, res: Respons
     }
 
     // Get the full leaderboard using the same logic as the main endpoint
-    const fullLeaderboard = await getLeaderboardData();
+    const fullLeaderboard = await getLeaderboardData(semesterCode);
     
     // Find the student
     const studentIndex = fullLeaderboard.findIndex(entry => entry.student_id === student_id);
@@ -242,10 +293,15 @@ router.get('/leaderboard/student/:student_id', async (req: Request, res: Respons
 /**
  * POST /api/leaderboard/calculate-bonus/:projectType
  * Manually calculate and award bonus points for most voted project
+ * Headers:
+ * - x-semester-code: Code of specific semester e.g. 'fall_2025' (optional)
  */
 router.post('/calculate-bonus/:projectType', async (req: Request, res: Response) => {
   try {
     const { projectType } = req.params;
+    
+    // Get semester from header
+    const semesterCode = req.headers['x-semester-code'] as string;
 
     if (!['midterm', 'final'].includes(projectType)) {
       return res.status(400).json({
@@ -255,9 +311,37 @@ router.post('/calculate-bonus/:projectType', async (req: Request, res: Response)
       });
     }
 
+    // Get semester ID if specified by code
+    let targetSemesterId: string | null = null;
+    
+    if (semesterCode) {
+      if (semesterCode.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+        targetSemesterId = semesterCode;
+      } else {
+        const { data: semesterData } = await supabase
+          .from('semesters')
+          .select('id')
+          .eq('code', semesterCode)
+          .eq('is_active', true)
+          .single();
+        
+        if (semesterData) {
+          targetSemesterId = semesterData.id;
+        }
+      }
+    }
+
     // Call the database function to award bonus
+    const rpcParams: { p_project_type: string; p_semester_id?: string } = { 
+      p_project_type: projectType 
+    };
+    
+    if (targetSemesterId) {
+      rpcParams.p_semester_id = targetSemesterId;
+    }
+    
     const { data, error } = await supabase
-      .rpc('award_vote_winner_bonus', { p_project_type: projectType });
+      .rpc('award_vote_winner_bonus', rpcParams);
 
     if (error) {
       console.error('Bonus calculation error:', error);

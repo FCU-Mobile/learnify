@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getStudentCheckIns, getAllStudents, getStudentReviews, getSubmissions, getStudentLeaderboardData } from '../lib/api';
+import { getStudentCheckInsForSemester, getAllStudents, getStudentReviews, getSubmissions, getStudentLeaderboardDataForSemester } from '../lib/api';
 import type { Student, StudentCheckIn, StudentReview, Submission, LeaderboardEntry } from '../lib/api';
+import { useSemester } from '../contexts/SemesterContext';
 
 const ProfilePage: React.FC = () => {
   const { studentId } = useParams<{ studentId: string }>();
@@ -14,6 +15,8 @@ const ProfilePage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [checkInsLoading, setCheckInsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  const { selectedSemester } = useSemester();
 
   useEffect(() => {
     const fetchStudentData = async () => {
@@ -38,9 +41,9 @@ const ProfilePage: React.FC = () => {
 
         setStudent(foundStudent);
         
-        // Fetch check-ins for this student
+        // Fetch check-ins for this student (will be refetched when semester changes)
         setCheckInsLoading(true);
-        const studentCheckIns = await getStudentCheckIns(studentId);
+        const studentCheckIns = await getStudentCheckInsForSemester(studentId, selectedSemester);
         setCheckIns(studentCheckIns);
         
         // Fetch reviews for this student
@@ -63,7 +66,7 @@ const ProfilePage: React.FC = () => {
         
         // Fetch student leaderboard data for points breakdown
         try {
-          const studentLeaderboardData = await getStudentLeaderboardData(studentId);
+          const studentLeaderboardData = await getStudentLeaderboardDataForSemester(studentId, selectedSemester);
           setLeaderboardData(studentLeaderboardData);
         } catch {
           console.log('No leaderboard data found for student, this is normal');
@@ -79,7 +82,7 @@ const ProfilePage: React.FC = () => {
     };
 
     fetchStudentData();
-  }, [studentId]);
+  }, [studentId, selectedSemester]);
 
   const getInitials = (name: string): string => {
     return name
@@ -229,16 +232,20 @@ const ProfilePage: React.FC = () => {
             </nav>
             
             {/* Title */}
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => navigate('/admin')}
-                className="text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                <i className="fas fa-arrow-left text-xl"></i>
-              </button>
-              <h1 className="text-2xl font-bold text-gray-900">
-                {student ? `${student.full_name}'s Profile` : 'Student Profile'}
-              </h1>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={() => navigate('/admin')}
+                  className="text-gray-600 hover:text-gray-900 transition-colors"
+                >
+                  <i className="fas fa-arrow-left text-xl"></i>
+                </button>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  {student ? `${student.full_name}'s Profile` : 'Student Profile'}
+                </h1>
+              </div>
+              
+              {/* Semester selection is now handled in the navigation */}
             </div>
           </div>
         </div>

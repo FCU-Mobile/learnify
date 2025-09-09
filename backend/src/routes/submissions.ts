@@ -268,6 +268,36 @@ router.post('/', upload.fields([
 
         const { student_id, full_name, submission_type, title, description, github_url, lesson_id, project_type, is_public } = validation.data;
 
+        // Get semester info from header or use current semester
+        const semesterCode = req.headers['x-semester-code'] as string;
+        let semesterId = null;
+        
+        if (semesterCode) {
+            // Get semester ID from code
+            const { data: semester } = await supabase
+                .from('semesters')
+                .select('id')
+                .eq('code', semesterCode)
+                .eq('is_active', true)
+                .single();
+            
+            if (semester) {
+                semesterId = semester.id;
+            }
+        } else {
+            // Use current semester if no header provided
+            const { data: currentSemester } = await supabase
+                .from('semesters')
+                .select('id')
+                .eq('is_current', true)
+                .eq('is_active', true)
+                .single();
+            
+            if (currentSemester) {
+                semesterId = currentSemester.id;
+            }
+        }
+
         // Ensure student exists
         const studentUuid = await ensureStudentExists(student_id, full_name);
 
@@ -349,15 +379,21 @@ router.post('/', upload.fields([
             });
         }
 
-        // Check for duplicate project submissions
+        // Check for duplicate project submissions (within the same semester)
         if (submission_type === 'project' && project_type) {
-            const { data: existingProject, error: checkError } = await supabase
+            const query = supabase
                 .from('submissions')
                 .select('id, title, created_at')
                 .eq('student_id', student_id)
                 .eq('submission_type', 'project')
-                .eq('project_type', project_type)
-                .single();
+                .eq('project_type', project_type);
+            
+            // Only check within the same semester if semesterId exists
+            if (semesterId) {
+                query.eq('semester_id', semesterId);
+            }
+                
+            const { data: existingProject, error: checkError } = await query.single();
 
             if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = no rows returned
                 console.error('Error checking for duplicate project:', checkError);
@@ -401,7 +437,8 @@ router.post('/', upload.fields([
                 github_url,
                 lesson_id,
                 project_type,
-                is_public: is_public || false
+                is_public: is_public || false,
+                semester_id: semesterId
             })
             .select(`
                 *,
