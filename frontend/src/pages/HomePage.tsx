@@ -2,10 +2,7 @@ import WelcomeSection from '../components/WelcomeSection';
 import QuickStats from '../components/QuickStats';
 import CurrentLessons from '../components/CurrentLessons';
 import RecentActivity from '../components/RecentActivity';
-import QuickActions from '../components/QuickActions';
 import Leaderboard from '../components/Leaderboard';
-import Achievements from '../components/Achievements';
-import UpcomingQuizzes from '../components/UpcomingQuizzes';
 import { useSemester } from '../contexts/SemesterContext';
 
 const HomePage: React.FC = () => {
@@ -26,14 +23,11 @@ const HomePage: React.FC = () => {
             <div className="lg:col-span-2 space-y-8">
               <CurrentLessons />
               <RecentActivity />
-              <QuickActions />
             </div>
 
             {/* Right Column */}
             <div className="space-y-8">
               <Leaderboard semesterCode={selectedSemester} />
-              <Achievements />
-              <UpcomingQuizzes />
             </div>
           </div>
         </div>
