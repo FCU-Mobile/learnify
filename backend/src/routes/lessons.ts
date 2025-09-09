@@ -40,6 +40,7 @@ interface StudentProgress {
 router.get('/', async (req: Request, res: Response) => {
   try {
     const { status, include_plan } = req.query;
+    const semester = req.headers['x-semester'] as string;
     
     // Build query
     let query = supabase
@@ -51,6 +52,20 @@ router.get('/', async (req: Request, res: Response) => {
     // Filter by status if provided
     if (status && typeof status === 'string') {
       query = query.eq('status', status);
+    }
+    
+    // Filter by semester if provided
+    if (semester && typeof semester === 'string') {
+      // Get semester ID from code
+      const { data: semesterData } = await supabase
+        .from('semesters')
+        .select('id')
+        .eq('code', semester)
+        .single();
+      
+      if (semesterData) {
+        query = query.eq('semester_id', semesterData.id);
+      }
     }
     
     const { data: lessons, error: lessonsError } = await query;
@@ -113,11 +128,13 @@ router.get('/', async (req: Request, res: Response) => {
 // GET /api/lessons/current - Get the current lesson (class-wide progress)
 router.get('/current', async (req: Request, res: Response) => {
   try {
+    const semester = req.headers['x-semester'] as string;
+    
     // Get today's date
     const today = new Date().toISOString().split('T')[0];
     
-    // Find the first lesson that is today or in the future and not skipped
-    const { data: lessons, error: lessonsError } = await supabase
+    // Build query with optional semester filtering
+    let query = supabase
       .from('lessons')
       .select('*')
       .gte('scheduled_date', today)
@@ -125,6 +142,22 @@ router.get('/current', async (req: Request, res: Response) => {
       .order('scheduled_date', { ascending: true })
       .order('name', { ascending: true })
       .limit(1);
+    
+    // Add semester filter if provided
+    if (semester && typeof semester === 'string') {
+      // Get semester ID from code
+      const { data: semesterData } = await supabase
+        .from('semesters')
+        .select('id')
+        .eq('code', semester)
+        .single();
+      
+      if (semesterData) {
+        query = query.eq('semester_id', semesterData.id);
+      }
+    }
+    
+    const { data: lessons, error: lessonsError } = await query;
     
     if (lessonsError) {
       console.error('Error fetching current lesson:', lessonsError);
@@ -137,13 +170,29 @@ router.get('/current', async (req: Request, res: Response) => {
     
     if (!lessons || lessons.length === 0) {
       // If no upcoming lessons, get the last non-skipped lesson
-      const { data: lastLessons, error: lastError } = await supabase
+      let lastQuery = supabase
         .from('lessons')
         .select('*')
         .neq('status', 'skipped')
         .order('scheduled_date', { ascending: false })
         .order('name', { ascending: true })
         .limit(1);
+      
+      // Add semester filter if provided
+      if (semester && typeof semester === 'string') {
+        // Get semester ID from code
+        const { data: semesterData } = await supabase
+          .from('semesters')
+          .select('id')
+          .eq('code', semester)
+          .single();
+        
+        if (semesterData) {
+          lastQuery = lastQuery.eq('semester_id', semesterData.id);
+        }
+      }
+      
+      const { data: lastLessons, error: lastError } = await lastQuery;
       
       if (lastError) {
         console.error('Error fetching last lesson:', lastError);

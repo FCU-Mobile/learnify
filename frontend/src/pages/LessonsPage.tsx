@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useSemester } from '../contexts/SemesterContext';
 import { getAllLessons as getAllLessonsAPI, updateLessonProgress, updateLessonUrl, updateLessonTitle, updateLessonDate, getAdminStatus, reorderLessonPlanItems, type Lesson, type LessonPlanItem } from '../lib/api';
 import {
   DndContext,
@@ -23,6 +24,7 @@ import { CSS } from '@dnd-kit/utilities';
 
 const LessonsPage: React.FC = () => {
   const { studentId } = useAuth();
+  const { selectedSemester } = useSemester();
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'upcoming' | 'past' | 'today'>('all');
@@ -54,8 +56,11 @@ const LessonsPage: React.FC = () => {
           }
         }
         
-        // Get all lessons from API with plans included (class-wide progress)
-        const allLessons = await getAllLessonsAPI({ include_plan: true });
+        // Get all lessons from API with plans included (class-wide progress), filtered by semester
+        const allLessons = await getAllLessonsAPI({ 
+          include_plan: true,
+          semester: selectedSemester || undefined
+        });
         setLessons(allLessons);
       } catch (err) {
         console.error('Error fetching lessons:', err);
@@ -66,7 +71,7 @@ const LessonsPage: React.FC = () => {
     };
 
     fetchData();
-  }, [studentId]);
+  }, [studentId, selectedSemester]);
 
   const formatLessonDate = (dateString: string): string => {
     const date = new Date(dateString);

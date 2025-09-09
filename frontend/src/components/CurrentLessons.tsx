@@ -1,10 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useSemester } from '../contexts/SemesterContext';
 import { getCurrentLesson as getCurrentLessonAPI, updateLessonProgress, updateLessonUrl, updateLessonDate, getAdminStatus, type Lesson } from '../lib/api';
 
 const CurrentLessons: React.FC = () => {
   const { studentId } = useAuth();
+  const { selectedSemester } = useSemester();
   const [currentLesson, setCurrentLesson] = useState<Lesson | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isTeacher, setIsTeacher] = useState(false);
@@ -30,8 +32,8 @@ const CurrentLessons: React.FC = () => {
           }
         }
         
-        // Get the current lesson from API (class-wide progress)
-        const lesson = await getCurrentLessonAPI();
+        // Get the current lesson from API for the selected semester
+        const lesson = await getCurrentLessonAPI(selectedSemester || undefined);
         setCurrentLesson(lesson);
       } catch (error) {
         console.error('Error fetching current lesson:', error);
@@ -42,7 +44,7 @@ const CurrentLessons: React.FC = () => {
     };
 
     fetchData();
-  }, [studentId]);
+  }, [studentId, selectedSemester]);
 
   const getProgressWidth = (progress: number) => {
     return `${Math.min(progress, 100)}%`;

@@ -267,16 +267,22 @@ export interface LessonResponse {
 }
 
 // Lessons API functions
-export const getAllLessons = async (params?: { status?: string; include_plan?: boolean }): Promise<Lesson[]> => {
-  const response = await api.get<LessonsResponse>('/api/lessons', { params });
+export const getAllLessons = async (params?: { status?: string; include_plan?: boolean; semester?: string }): Promise<Lesson[]> => {
+  const { semester, ...queryParams } = params || {};
+  const headers = semester ? { 'x-semester': semester } : {};
+  const response = await api.get<LessonsResponse>('/api/lessons', { 
+    params: queryParams,
+    headers 
+  });
   if (!response.data.success) {
     throw new Error('Failed to fetch lessons');
   }
   return response.data.data;
 };
 
-export const getCurrentLesson = async (): Promise<Lesson | null> => {
-  const response = await api.get<LessonResponse>('/api/lessons/current');
+export const getCurrentLesson = async (semesterCode?: string): Promise<Lesson | null> => {
+  const headers = semesterCode ? { 'x-semester': semesterCode } : {};
+  const response = await api.get<LessonResponse>('/api/lessons/current', { headers });
   if (!response.data.success) {
     throw new Error('Failed to fetch current lesson');
   }
