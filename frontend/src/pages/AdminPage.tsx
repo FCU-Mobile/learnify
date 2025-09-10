@@ -5,6 +5,7 @@ import { useSemester } from '../contexts/SemesterContext';
 import { getAdminStatus, getAllStudentsAsAdmin, deleteStudent, getAllLessons as getAllLessonsAPI, updateLessonStatus, fixQuizScores, calculateBonusPoints, getFeedbackAnalytics, getAllFeedback, setCurrentSemester, getSemesterStats } from '../lib/api';
 import type { Student, AdminStatus, Lesson, QuizScoreFixResponse, BonusCalculationResponse, FeedbackAnalytics, StudentFeedback, SemesterStats } from '../lib/api';
 import SemesterSelector from '../components/SemesterSelector';
+import TeamManagement from '../components/TeamManagement';
 
 const AdminPage: React.FC = () => {
   const { studentId } = useAuth();
@@ -20,7 +21,7 @@ const AdminPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
   const [statusUpdateLoading, setStatusUpdateLoading] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'students' | 'lessons' | 'system' | 'feedback'>('students');
+  const [activeTab, setActiveTab] = useState<'students' | 'lessons' | 'teams' | 'system' | 'feedback'>('students');
   const [fixScoreLoading, setFixScoreLoading] = useState(false);
   const [fixScoreResult, setFixScoreResult] = useState<QuizScoreFixResponse | null>(null);
   const [bonusLoading, setBonusLoading] = useState<'midterm' | 'final' | null>(null);
@@ -428,6 +429,19 @@ const AdminPage: React.FC = () => {
                 <i className="fas fa-book mr-2"></i>
                 Lessons ({lessons.length})
               </button>
+              {isFallSemester && (
+                <button
+                  onClick={() => setActiveTab('teams')}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+                    activeTab === 'teams'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <i className="fas fa-users mr-2"></i>
+                  Teams
+                </button>
+              )}
               {!isFallSemester && (
                 <button
                   onClick={() => setActiveTab('system')}
@@ -727,6 +741,18 @@ const AdminPage: React.FC = () => {
                 </table>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Teams Tab */}
+        {isFallSemester && activeTab === 'teams' && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="p-6">
+              <TeamManagement 
+                semesterId="c4e5ac51-462d-4369-b493-ba4e8a2dc693" 
+                adminId={studentId || "ADMIN001"} 
+              />
+            </div>
           </div>
         )}
 

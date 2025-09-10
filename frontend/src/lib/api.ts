@@ -1420,4 +1420,183 @@ export const checkInStudentForSemester = async (
   }
 };
 
+// Team Management interfaces
+export interface ProjectTeam {
+  team_id: number;
+  team_name: string;
+  project_number: number;
+  member_count: number;
+  members: Array<{
+    student_id: string;
+    joined_at: string;
+  }>;
+  created_at: string;
+}
+
+export interface UnassignedStudent {
+  student_id: string;
+  full_name: string;
+}
+
+export interface TeamsResponse {
+  success: boolean;
+  data: {
+    teams: ProjectTeam[];
+    project_number: number;
+    semester_id: string;
+  };
+}
+
+export interface UnassignedStudentsResponse {
+  success: boolean;
+  data: {
+    students: UnassignedStudent[];
+    count: number;
+  };
+}
+
+export interface CreateTeamRequest {
+  admin_id: string;
+  semester_id: string;
+  project_number: number;
+  team_name: string;
+  member_ids: string[];
+}
+
+export interface CreateTeamResponse {
+  success: boolean;
+  data: {
+    team_id: number;
+    team_name: string;
+    member_count: number;
+    members: string[];
+  };
+  message: string;
+  error?: string;
+}
+
+export interface ShuffleTeamsRequest {
+  admin_id: string;
+  semester_id: string;
+  project_number: number;
+}
+
+export interface ShuffleTeamsResponse {
+  success: boolean;
+  data: {
+    teams: Array<{
+      team_id: number;
+      team_name: string;
+      members: string[];
+      member_count: number;
+    }>;
+    total_teams: number;
+    total_students: number;
+  };
+  message: string;
+  error?: string;
+}
+
+export interface UpdateTeamRequest {
+  admin_id: string;
+  team_name?: string;
+  member_ids?: string[];
+}
+
+export interface UpdateTeamResponse {
+  success: boolean;
+  data: {
+    team_id: number;
+    team_name: string;
+    updated_members: number | null;
+  };
+  message: string;
+  error?: string;
+}
+
+// Team Management API functions
+
+// Get teams for a specific project and semester
+export const getTeams = async (
+  semesterId: string,
+  projectNumber: number
+): Promise<ProjectTeam[]> => {
+  const response = await api.get<TeamsResponse>('/api/teams', {
+    params: {
+      semester_id: semesterId,
+      project_number: projectNumber
+    }
+  });
+  if (!response.data.success) {
+    throw new Error('Failed to fetch teams');
+  }
+  return response.data.data.teams;
+};
+
+// Get unassigned students for a project
+export const getUnassignedStudents = async (
+  semesterId: string,
+  projectNumber: number
+): Promise<UnassignedStudent[]> => {
+  const response = await api.get<UnassignedStudentsResponse>('/api/teams/unassigned', {
+    params: {
+      semester_id: semesterId,
+      project_number: projectNumber
+    }
+  });
+  if (!response.data.success) {
+    throw new Error('Failed to fetch unassigned students');
+  }
+  return response.data.data.students;
+};
+
+// Create a new team
+export const createTeam = async (data: CreateTeamRequest): Promise<CreateTeamResponse> => {
+  const response = await api.post<CreateTeamResponse>('/api/teams', data);
+  if (!response.data.success) {
+    throw new Error(response.data.error || 'Failed to create team');
+  }
+  return response.data;
+};
+
+// Shuffle teams automatically
+export const shuffleTeams = async (data: ShuffleTeamsRequest): Promise<ShuffleTeamsResponse> => {
+  const response = await api.post<ShuffleTeamsResponse>('/api/teams/shuffle', data);
+  if (!response.data.success) {
+    throw new Error(response.data.error || 'Failed to shuffle teams');
+  }
+  return response.data;
+};
+
+export const reshuffleTeams = async (data: ShuffleTeamsRequest): Promise<ShuffleTeamsResponse> => {
+  const response = await api.post<ShuffleTeamsResponse>('/api/teams/reshuffle', data);
+  if (!response.data.success) {
+    throw new Error(response.data.error || 'Failed to reshuffle teams');
+  }
+  return response.data;
+};
+
+// Update a team
+export const updateTeam = async (
+  teamId: number,
+  data: UpdateTeamRequest
+): Promise<UpdateTeamResponse> => {
+  const response = await api.put<UpdateTeamResponse>(`/api/teams/${teamId}`, data);
+  if (!response.data.success) {
+    throw new Error(response.data.error || 'Failed to update team');
+  }
+  return response.data;
+};
+
+// Delete a team
+export const deleteTeam = async (teamId: number, adminId: string): Promise<{success: boolean; message: string}> => {
+  const response = await api.delete<{success: boolean; message: string; error?: string}>(`/api/teams/${teamId}`, {
+    data: { admin_id: adminId }
+  });
+  if (!response.data.success) {
+    throw new Error(response.data.error || 'Failed to delete team');
+  }
+  return response.data;
+};
+
 export default api;
