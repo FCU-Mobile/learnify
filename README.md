@@ -7,9 +7,10 @@ This repository contains the complete source code for the Learnify ecosystem, in
 ## ✨ Key Features
 
 -   **🧠 Smart Learning Quiz System**: An adaptive quiz engine that personalizes questions based on student performance to ensure mastery of subjects.
+-   **👥 Team Management System**: Fall semester team-based projects with 3-4 member teams, shared submissions, and equal scoring.
 -   **📱 Cross-Platform Access**: Learn and manage on the go with a responsive web application and a native SwiftUI iOS app.
 -   **🏆 Gamified Experience**: Students earn points for activities like check-ins and quizzes, competing on a live leaderboard.
--   **👨‍🏫 Instructor Dashboard**: A comprehensive web dashboard for instructors to monitor class progress, review submissions, and gain insights into student performance.
+-   **👨‍🏫 Instructor Dashboard**: A comprehensive web dashboard for instructors to monitor class progress, manage teams, review submissions, and gain insights into student performance.
 -   **🚀 Real-time Updates**: Live data synchronization for leaderboards, check-ins, and student progress across all platforms.
 -   **✅ Seamless Integration**: Powered by a robust backend using Node.js, Express, and Supabase for database, authentication, and storage.
 

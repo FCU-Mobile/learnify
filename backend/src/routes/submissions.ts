@@ -379,8 +379,85 @@ router.post('/', upload.fields([
             });
         }
 
-        // Check for duplicate project submissions (within the same semester)
+        // For project submissions, check team membership and validate team submission rules
+        let teamId = null;
+        let teamSubmissionCheck = null;
+        
         if (submission_type === 'project' && project_type) {
+            // Get project number from project_type (midterm=1, final=2, project3=3)
+            const projectNumberMap: { [key: string]: number } = {
+                'midterm': 1,
+                'final': 2,
+                'project3': 3
+            };
+            const projectNumber = projectNumberMap[project_type];
+            
+            if (projectNumber && semesterId) {
+                // Check if student is in a team for this project
+                const { data: teamMembership, error: teamError } = await supabase
+                    .from('team_members')
+                    .select(`
+                        team_id,
+                        project_teams!inner(
+                            id,
+                            team_name,
+                            project_number,
+                            semester_id
+                        )
+                    `)
+                    .eq('student_id', student_id)
+                    .eq('project_teams.project_number', projectNumber)
+                    .eq('project_teams.semester_id', semesterId)
+                    .single();
+                
+                if (teamError && teamError.code !== 'PGRST116') {
+                    console.error('Error checking team membership:', teamError);
+                }
+                
+                if (teamMembership) {
+                    teamId = teamMembership.team_id;
+                    
+                    // Check if team already has a submission for this project
+                    const { data: existingTeamSubmission, error: teamSubError } = await supabase
+                        .from('submissions')
+                        .select('id, title, created_at, student_id')
+                        .eq('submission_type', 'project')
+                        .eq('project_type', project_type)
+                        .eq('team_id', teamId)
+                        .eq('semester_id', semesterId)
+                        .single();
+                    
+                    if (teamSubError && teamSubError.code !== 'PGRST116') {
+                        console.error('Error checking team submission:', teamSubError);
+                        return res.status(500).json({
+                            success: false,
+                            error: 'Failed to validate team submission',
+                            message: 'Could not check for existing team submissions'
+                        });
+                    }
+                    
+                    if (existingTeamSubmission) {
+                        return res.status(409).json({
+                            success: false,
+                            error: 'Team already submitted',
+                            message: `Your team has already submitted a ${project_type} project titled "${existingTeamSubmission.title}". Only one submission per team is allowed.`,
+                            details: {
+                                existing_submission: {
+                                    id: existingTeamSubmission.id,
+                                    title: existingTeamSubmission.title,
+                                    submitted_by: existingTeamSubmission.student_id,
+                                    submitted_at: existingTeamSubmission.created_at
+                                },
+                                suggestion: 'Any team member can modify the existing submission or contact the original submitter.'
+                            }
+                        });
+                    }
+                }
+            }
+        }
+
+        // Check for individual duplicate project submissions (fallback for non-team projects)
+        if (submission_type === 'project' && project_type && !teamId) {
             const query = supabase
                 .from('submissions')
                 .select('id, title, created_at')
@@ -421,7 +498,7 @@ router.post('/', upload.fields([
             }
         }
 
-        // Create submission record
+        // Create submission record WITHOUT team_id first to avoid trigger issues
         const { data: submission, error: submissionError } = await supabase
             .from('submissions')
             .insert({
@@ -439,6 +516,7 @@ router.post('/', upload.fields([
                 project_type,
                 is_public: is_public || false,
                 semester_id: semesterId
+                // team_id: teamId // We'll add this after creation to avoid trigger recursion
             })
             .select(`
                 *,
@@ -453,6 +531,32 @@ router.post('/', upload.fields([
                 error: 'Failed to create submission',
                 message: submissionError.message
             });
+        }
+
+        // If this is a team project submission, update the team_id after creation to avoid trigger issues
+        let finalSubmission = submission;
+        if (teamId && submission_type === 'project' && project_type) {
+            try {
+                const { data: updatedSubmission, error: updateError } = await supabase
+                    .from('submissions')
+                    .update({ team_id: teamId })
+                    .eq('id', submission.id)
+                    .select(`
+                        *,
+                        students!inner(full_name)
+                    `)
+                    .single();
+
+                if (updateError) {
+                    console.error('Error updating team_id:', updateError);
+                    // Continue without team_id if update fails
+                } else {
+                    finalSubmission = updatedSubmission;
+                }
+            } catch (teamUpdateError) {
+                console.error('Team update failed:', teamUpdateError);
+                // Continue without team_id if update fails
+            }
         }
 
         // Save multiple files to submission_files table
@@ -478,9 +582,9 @@ router.post('/', upload.fields([
             success: true,
             data: {
                 submission: {
-                    ...submission,
+                    ...finalSubmission,
                     file_url: fileUrl,
-                    student_name: submission.students.full_name
+                    student_name: finalSubmission.students.full_name
                 }
             },
             message: 'Submission created successfully'
@@ -515,7 +619,12 @@ router.get('/', async (req: Request, res: Response) => {
             .from('submissions')
             .select(`
                 *,
-                students!inner(full_name)
+                students!inner(full_name),
+                project_teams(
+                    id,
+                    team_name,
+                    project_number
+                )
             `)
             .order('created_at', { ascending: false });
 
@@ -553,7 +662,32 @@ router.get('/', async (req: Request, res: Response) => {
         const submissionIds = submissions.map(s => s.id);
         const filesBySubmission = await getSubmissionFiles(submissionIds);
 
-        // Add file URLs and multiple files to submissions
+        // Get team members for submissions that have teams
+        const teamIds = [...new Set(submissions
+            .filter(s => s.team_id)
+            .map(s => s.team_id)
+        )];
+        
+        let teamMembersByTeamId: { [key: number]: string[] } = {};
+        
+        if (teamIds.length > 0) {
+            const { data: teamMembers } = await supabase
+                .from('team_members')
+                .select('team_id, student_id')
+                .in('team_id', teamIds);
+                
+            if (teamMembers) {
+                teamMembersByTeamId = teamMembers.reduce((acc, member) => {
+                    if (!acc[member.team_id]) {
+                        acc[member.team_id] = [];
+                    }
+                    acc[member.team_id].push(member.student_id);
+                    return acc;
+                }, {} as { [key: number]: string[] });
+            }
+        }
+
+        // Add file URLs, multiple files, and team information to submissions
         const submissionsWithUrls = submissions.map(submission => {
             let fileUrl = null;
             if (submission.file_path) {
@@ -563,11 +697,23 @@ router.get('/', async (req: Request, res: Response) => {
                 fileUrl = urlData.publicUrl;
             }
 
+            // Add team information if the submission has a team
+            let teamInfo = null;
+            if (submission.team_id && submission.project_teams) {
+                teamInfo = {
+                    team_id: submission.project_teams.id,
+                    team_name: submission.project_teams.team_name,
+                    project_number: submission.project_teams.project_number,
+                    members: teamMembersByTeamId[submission.team_id] || []
+                };
+            }
+
             return {
                 ...submission,
                 file_url: fileUrl,
                 files: filesBySubmission[submission.id] || [],
-                student_name: submission.students.full_name
+                student_name: submission.students.full_name,
+                team: teamInfo
             };
         });
 
@@ -601,18 +747,63 @@ router.get('/projects/public', async (req: Request, res: Response) => {
     try {
         const { project_type, limit = '50', offset = '0' } = req.query;
 
+        // Get semester code from header
+        const semesterCode = req.headers['x-semester-code'] as string;
+        
+        // Get semester ID if semester code is provided
+        let semesterId: string | null = null;
+        if (semesterCode) {
+            const { data: semester } = await supabase
+                .from('semesters')
+                .select('id')
+                .eq('code', semesterCode)
+                .single();
+            
+            if (semester) {
+                semesterId = semester.id;
+            }
+        }
+
         let query = supabase
             .from('submissions')
             .select(`
                 *,
-                students!inner(full_name)
+                students!inner(full_name),
+                project_teams!team_id(
+                    id,
+                    team_name,
+                    project_number
+                )
             `)
             .eq('submission_type', 'project')
             .eq('is_public', true)
             .order('created_at', { ascending: false });
 
+        // Apply semester filtering
+        if (semesterCode === 'summer_2025' || !semesterCode) {
+            // For Summer semester or no semester specified: show projects with no semester (legacy) OR summer semester
+            if (semesterId) {
+                query = query.or(`semester_id.is.null,semester_id.eq.${semesterId}`);
+            } else {
+                // If no semester found, only show legacy projects (null semester_id)
+                query = query.is('semester_id', null);
+            }
+        } else if (semesterId) {
+            // For Fall or other semesters: only show projects from that specific semester
+            query = query.eq('semester_id', semesterId);
+        } else {
+            // Invalid semester code, return empty result
+            return res.json({
+                success: true,
+                data: {
+                    submissions: [],
+                    total: 0
+                }
+            });
+        }
+
         // Apply project type filter if specified
-        if (project_type && (project_type === 'midterm' || project_type === 'final')) {
+        if (project_type && (project_type === 'midterm' || project_type === 'final' || project_type === 'project3')) {
             query = query.eq('project_type', project_type);
         }
 
@@ -636,6 +827,49 @@ router.get('/projects/public', async (req: Request, res: Response) => {
         const projectIds = projects.map(p => p.id);
         const filesByProject = await getSubmissionFiles(projectIds);
 
+        // Get team members for projects with teams
+        const teamIds = projects
+            .filter(p => p.team_id && p.project_teams)
+            .map(p => p.team_id);
+        
+        let teamMembersByTeamId: { [key: string]: any[] } = {};
+        
+        if (teamIds.length > 0) {
+            // Get all team members for the teams
+            const { data: teamMembers } = await supabase
+                .from('team_members')
+                .select('team_id, student_id, joined_at')
+                .in('team_id', teamIds);
+
+            if (teamMembers) {
+                // Get student names for all team members
+                const studentIds = teamMembers.map(m => m.student_id);
+                const { data: studentsData } = await supabase
+                    .from('students')
+                    .select('student_id, full_name')
+                    .in('student_id', studentIds);
+
+                const studentMap: { [key: string]: string } = {};
+                if (studentsData) {
+                    studentsData.forEach(s => {
+                        studentMap[s.student_id] = s.full_name;
+                    });
+                }
+
+                // Group members by team_id and add names
+                teamMembers.forEach(member => {
+                    if (!teamMembersByTeamId[member.team_id]) {
+                        teamMembersByTeamId[member.team_id] = [];
+                    }
+                    teamMembersByTeamId[member.team_id].push({
+                        student_id: member.student_id,
+                        full_name: studentMap[member.student_id] || 'Unknown',
+                        joined_at: member.joined_at
+                    });
+                });
+            }
+        }
+
         // Add file URLs and multiple files to projects
         const projectsWithUrls = projects.map(project => {
             let fileUrl = null;
@@ -646,11 +880,23 @@ router.get('/projects/public', async (req: Request, res: Response) => {
                 fileUrl = urlData.publicUrl;
             }
 
+            // Add team information if the project has a team
+            let teamInfo = null;
+            if (project.team_id && project.project_teams) {
+                teamInfo = {
+                    team_id: project.project_teams.id,
+                    team_name: project.project_teams.team_name,
+                    project_number: project.project_teams.project_number,
+                    members: teamMembersByTeamId[project.team_id] || []
+                };
+            }
+
             return {
                 ...project,
                 file_url: fileUrl,
                 files: filesByProject[project.id] || [],
-                student_name: project.students.full_name
+                student_name: project.students.full_name,
+                team: teamInfo
             };
         });
 
@@ -673,6 +919,149 @@ router.get('/projects/public', async (req: Request, res: Response) => {
             success: false,
             error: 'Internal server error',
             message: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+});
+
+// GET /api/submissions/team-status - Check if a team has already submitted for a project
+router.get('/team-status', async (req: Request, res: Response) => {
+    try {
+        const { student_id, project_type, semester_id } = req.query;
+        
+        if (!student_id || !project_type || !semester_id) {
+            return res.status(400).json({
+                success: false,
+                error: 'student_id, project_type, and semester_id are required'
+            });
+        }
+
+        // Get project number from project type
+        const projectNumberMap: { [key: string]: number } = {
+            'midterm': 1,
+            'final': 2,
+            'project3': 3
+        };
+        
+        const projectNumber = projectNumberMap[project_type as string];
+        if (!projectNumber) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid project_type. Must be midterm, final, or project3'
+            });
+        }
+
+        // First, check if student is in a team for this project
+        const { data: teamMembership, error: teamError } = await supabase
+            .from('team_members')
+            .select(`
+                team_id,
+                project_teams!inner(
+                    id,
+                    team_name,
+                    project_number,
+                    semester_id
+                )
+            `)
+            .eq('student_id', student_id)
+            .eq('project_teams.project_number', projectNumber)
+            .eq('project_teams.semester_id', semester_id)
+            .single();
+
+        if (teamError && teamError.code !== 'PGRST116') {
+            throw teamError;
+        }
+
+        // If student is not in a team, check for individual submission
+        if (!teamMembership) {
+            const { data: individualSubmission, error: indivError } = await supabase
+                .from('submissions')
+                .select(`
+                    id,
+                    title,
+                    created_at,
+                    student_id,
+                    students!inner(full_name)
+                `)
+                .eq('student_id', student_id)
+                .eq('submission_type', 'project')
+                .eq('project_type', project_type)
+                .eq('semester_id', semester_id)
+                .single();
+
+            if (indivError && indivError.code !== 'PGRST116') {
+                throw indivError;
+            }
+
+            return res.json({
+                success: true,
+                data: {
+                    hasTeamSubmitted: false,
+                    hasIndividualSubmitted: !!individualSubmission,
+                    submission: individualSubmission || null,
+                    team: null
+                }
+            });
+        }
+
+        // Student is in a team, check if team has submitted
+        const { data: teamSubmission, error: subError } = await supabase
+            .from('submissions')
+            .select(`
+                id,
+                title,
+                description,
+                github_url,
+                created_at,
+                student_id,
+                team_id,
+                students!inner(full_name)
+            `)
+            .eq('submission_type', 'project')
+            .eq('project_type', project_type)
+            .eq('team_id', teamMembership.team_id)
+            .eq('semester_id', semester_id)
+            .single();
+
+        if (subError && subError.code !== 'PGRST116') {
+            throw subError;
+        }
+
+        // Get all team members
+        const { data: allMembers, error: membersError } = await supabase
+            .from('team_members')
+            .select('student_id')
+            .eq('team_id', teamMembership.team_id);
+
+        if (membersError) {
+            throw membersError;
+        }
+
+        const teamData = Array.isArray(teamMembership.project_teams) 
+            ? teamMembership.project_teams[0] 
+            : teamMembership.project_teams;
+
+        const team = {
+            team_id: teamData.id,
+            team_name: teamData.team_name,
+            project_number: teamData.project_number,
+            members: allMembers?.map(m => m.student_id) || []
+        };
+
+        res.json({
+            success: true,
+            data: {
+                hasTeamSubmitted: !!teamSubmission,
+                hasIndividualSubmitted: false,
+                submission: teamSubmission || null,
+                team
+            }
+        });
+
+    } catch (error: any) {
+        console.error('Error checking team submission status:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Failed to check team submission status'
         });
     }
 });
@@ -712,6 +1101,67 @@ router.get('/:id', async (req: Request, res: Response) => {
             fileUrl = urlData.publicUrl;
         }
 
+        // Get team information if this is a team submission
+        let teamInfo = null;
+        if (submission.team_id && submission.project_type && submission.semester_id) {
+            // Map project type to project number (same logic as team-status endpoint)
+            const projectNumberMap: { [key: string]: number } = {
+                'midterm': 1,
+                'final': 2,
+                'project3': 3
+            };
+            
+            const projectNumber = projectNumberMap[submission.project_type];
+            
+            if (projectNumber) {
+                // Get team info using the same approach as the teams API
+                const { data: teamData, error: teamError } = await supabase
+                    .from('project_teams')
+                    .select(`
+                        id,
+                        team_name,
+                        project_number,
+                        semester_id
+                    `)
+                    .eq('id', submission.team_id)
+                    .eq('project_number', projectNumber)
+                    .eq('semester_id', submission.semester_id)
+                    .single();
+
+                if (!teamError && teamData) {
+                    // Get all team members with their full names - separate queries like in teams.ts
+                    const { data: teamMembers, error: membersError } = await supabase
+                        .from('team_members')
+                        .select('student_id')
+                        .eq('team_id', submission.team_id);
+
+                    if (!membersError && teamMembers) {
+                        // Get student names separately
+                        const studentIds = teamMembers.map(m => m.student_id);
+                        const { data: studentsData, error: studentsError } = await supabase
+                            .from('students')
+                            .select('student_id, full_name')
+                            .in('student_id', studentIds);
+
+                        if (!studentsError && studentsData) {
+                            const studentNameMap = new Map(studentsData.map(s => [s.student_id, s.full_name]));
+                            
+                            teamInfo = {
+                                team_id: teamData.id,
+                                team_name: teamData.team_name,
+                                project_number: teamData.project_number,
+                                semester_id: teamData.semester_id,
+                                members: teamMembers.map(member => ({
+                                    student_id: member.student_id,
+                                    full_name: studentNameMap.get(member.student_id) || 'Unknown'
+                                }))
+                            };
+                        }
+                    }
+                }
+            }
+        }
+
         res.json({
             success: true,
             data: {
@@ -719,7 +1169,8 @@ router.get('/:id', async (req: Request, res: Response) => {
                     ...submission,
                     file_url: fileUrl,
                     files: filesBySubmission[submission.id] || [],
-                    student_name: submission.students.full_name
+                    student_name: submission.students.full_name,
+                    team: teamInfo
                 }
             }
         });
@@ -753,18 +1204,42 @@ router.put('/:id/screenshots', upload.fields([
             });
         }
 
-        // Verify the submission exists and belongs to the student
+        // Verify the submission exists and check access permissions
         const { data: submission, error: fetchError } = await supabase
             .from('submissions')
-            .select('id, student_id, submission_type, file_path')
+            .select('id, student_id, submission_type, file_path, project_type, team_id')
             .eq('id', submissionId)
-            .eq('student_id', student_id)
             .single();
 
         if (fetchError || !submission) {
             return res.status(404).json({
                 success: false,
-                error: 'Project submission not found or access denied'
+                error: 'Project submission not found'
+            });
+        }
+
+        // Check if student can access this submission (owner or team member)
+        let canAccess = submission.student_id === student_id;
+        
+        if (!canAccess && submission.submission_type === 'project' && submission.project_type && submission.team_id) {
+            // Check if student is in the same team
+            const { data: teamMembership, error: teamError } = await supabase
+                .from('team_members')
+                .select('team_id')
+                .eq('student_id', student_id)
+                .eq('team_id', submission.team_id)
+                .single();
+                
+            if (teamMembership) {
+                canAccess = true;
+            }
+        }
+        
+        if (!canAccess) {
+            return res.status(403).json({
+                success: false,
+                error: 'Access denied',
+                message: 'You can only add screenshots to your own submissions or your team\'s project submissions'
             });
         }
 
@@ -1075,12 +1550,55 @@ router.put('/:id', async (req: Request, res: Response) => {
             });
         }
 
-        // Verify ownership
-        if (existingSubmission.student_id !== student_id) {
+        // Verify ownership (either student owns it OR student is in the same team for project submissions)
+        let canEdit = existingSubmission.student_id === student_id;
+        
+        if (!canEdit && existingSubmission.submission_type === 'project' && existingSubmission.project_type) {
+            // Check if student is in the same team as the project
+            const projectNumberMap: { [key: string]: number } = {
+                'midterm': 1,
+                'final': 2,
+                'project3': 3
+            };
+            const projectNumber = projectNumberMap[existingSubmission.project_type];
+            
+            if (projectNumber) {
+                const { data: teamMembership, error: teamError } = await supabase
+                    .from('team_members')
+                    .select(`
+                        team_id,
+                        project_teams!inner(
+                            id,
+                            team_name,
+                            project_number,
+                            semester_id
+                        )
+                    `)
+                    .eq('student_id', student_id)
+                    .eq('project_teams.project_number', projectNumber)
+                    .single();
+                    
+                if (teamMembership) {
+                    // Check if this submission belongs to the same team
+                    const { data: submissionTeam, error: subTeamError } = await supabase
+                        .from('submissions')
+                        .select('team_id')
+                        .eq('id', submissionId)
+                        .eq('team_id', teamMembership.team_id)
+                        .single();
+                        
+                    if (submissionTeam) {
+                        canEdit = true;
+                    }
+                }
+            }
+        }
+        
+        if (!canEdit) {
             return res.status(403).json({
                 success: false,
                 error: 'Access denied',
-                message: 'You can only edit your own submissions'
+                message: 'You can only edit your own submissions or your team\'s project submissions'
             });
         }
 
@@ -1296,6 +1814,48 @@ router.delete('/:id', async (req: Request, res: Response) => {
             success: false,
             error: 'Internal server error',
             message: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+});
+
+
+// Manual fix for submission 1426
+router.patch('/1426/fix-team-manual', async (req: Request, res: Response) => {
+    try {
+        // Use raw UPDATE without going through Supabase ORM to avoid triggers
+        // We'll use a simple select to verify then manual SQL
+        const { data: currentSubmission } = await supabase
+            .from('submissions')
+            .select('id, team_id, student_id, project_type')
+            .eq('id', 1426)
+            .single();
+            
+        if (!currentSubmission) {
+            return res.status(404).json({
+                success: false,
+                error: 'Submission 1426 not found'
+            });
+        }
+        
+        console.log('Current submission 1426:', currentSubmission);
+        
+        // Manual SQL execution through supabase-js doesn't work well
+        // So let's just confirm the submission exists and return instructions
+        res.json({
+            success: true,
+            message: 'Submission 1426 found, manual database update needed',
+            data: {
+                current: currentSubmission,
+                needed_update: 'SET team_id = 35 WHERE id = 1426',
+                instruction: 'Go to Supabase Studio SQL editor and run: UPDATE submissions SET team_id = 35 WHERE id = 1426;'
+            }
+        });
+        
+    } catch (error: any) {
+        console.error('Error checking submission:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Failed to check submission'
         });
     }
 });

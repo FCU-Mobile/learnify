@@ -9,11 +9,14 @@ import TeamManagement from '../components/TeamManagement';
 
 const AdminPage: React.FC = () => {
   const { studentId } = useAuth();
-  const { selectedSemester } = useSemester();
+  const { selectedSemester, availableSemesters } = useSemester();
   const navigate = useNavigate();
   
   // Check if current semester is Fall 2025 (hide System/Feedback tabs)
   const isFallSemester = selectedSemester === 'fall_2025';
+  
+  // Get the semester ID for the currently selected semester
+  const selectedSemesterId = availableSemesters.find(s => s.code === selectedSemester)?.id;
   const [adminStatus, setAdminStatus] = useState<AdminStatus | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
@@ -749,7 +752,7 @@ const AdminPage: React.FC = () => {
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="p-6">
               <TeamManagement 
-                semesterId="c4e5ac51-462d-4369-b493-ba4e8a2dc693" 
+                semesterId={selectedSemesterId || ""} 
                 adminId={studentId || "ADMIN001"} 
               />
             </div>

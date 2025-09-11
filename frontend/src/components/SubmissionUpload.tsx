@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Upload, X, Github, FileText, Image, AlertCircle } from 'lucide-react';
 import { uploadSubmission, type Submission } from '../lib/api';
+import { useSemester } from '../contexts/SemesterContext';
 
 interface SubmissionUploadProps {
   studentId: string;
@@ -13,6 +14,7 @@ const SubmissionUpload: React.FC<SubmissionUploadProps> = ({
   lessonId,
   onUploadSuccess
 }) => {
+  const { selectedSemester } = useSemester();
   const [submissionType, setSubmissionType] = useState<'screenshot' | 'github_repo'>('screenshot');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -115,7 +117,7 @@ const SubmissionUpload: React.FC<SubmissionUploadProps> = ({
       if (lessonId) formData.append('lesson_id', lessonId);
       if (file) formData.append('file', file);
 
-      const submission = await uploadSubmission(formData);
+      const submission = await uploadSubmission(formData, selectedSemester || undefined);
 
       // Reset form
       setTitle('');

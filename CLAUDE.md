@@ -76,8 +76,9 @@ npm run lint            # Code linting
 2. **Smart Learning Quiz System**: Adaptive question selection based on learning patterns
 3. **Gamification**: Daily check-ins, points system, leaderboards
 4. **Submissions**: Screenshot uploads and GitHub repository linking
-5. **Admin Dashboard**: Instructor view with class-wide analytics
-6. **Awards System**: Instructor-awarded badges and recognition
+5. **Team Management**: Fall semester team-based project submissions with shared scoring
+6. **Admin Dashboard**: Instructor view with class-wide analytics and team management
+7. **Awards System**: Instructor-awarded badges and recognition
 
 ### 🧠 Smart Learning Quiz System
 **📖 [Complete Documentation](QUIZ_SYSTEM.md)**
@@ -89,15 +90,27 @@ Intelligent quiz system that ensures students master SwiftUI fundamentals throug
 - **Cross-Platform**: Web and iOS implementations with real-time sync
 - **Performance Tracking**: Detailed analytics and progress monitoring
 
+### 👥 Team Management System (Fall Semester)
+**📖 [Complete Documentation](TEAM_MANAGEMENT.md)**
+
+Team-based project system for Fall semester courses with:
+- **Team Formation**: 3-4 member teams with constraint checking
+- **Shared Submissions**: Any team member can submit/edit team projects
+- **Equal Scoring**: Automatic score propagation to all team members
+- **Administrative Control**: Team creation and management via admin dashboard
+- **Smart Shuffling**: Algorithm prevents repeat teammates across projects
+
 ## Data Models
 
 Core entities include:
 - `students` - Student data with auto-registration support
 - `student_check_ins` - Daily engagement tracking without cooldown restrictions
-- `submissions` - Screenshots and GitHub links
+- `submissions` - Screenshots and GitHub links with team support
 - `quizzes/questions/quiz_attempts` - Assessment system
 - `awards` - Recognition and badges
 - `projects` - Information about student projects
+- `project_teams` - Team management for Fall semester projects
+- `team_members` - Student-team relationships with constraints
 - `project_submissions` - Links projects to students
 - `project_votes` - Tracks student votes on projects
 - `project_notes` - Notes and feedback on projects

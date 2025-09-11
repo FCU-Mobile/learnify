@@ -8,10 +8,11 @@ The voting system allows students to vote for their favorite midterm and final p
 
 ### 🗳️ **Voting Rules**
 - Each student can cast **2 votes total**: one for midterm projects, one for final projects
-- Students cannot vote for their own projects
+- Students cannot vote for their own projects **or their team's projects** (Fall semester)
 - Vote counts are **public** and visible to everyone
 - Individual votes are **private** - only the voter knows who they voted for
 - Students can change their vote at any time
+- **Team Projects**: In Fall semester, projects are team-based with shared submissions and scores
 
 ### 📊 **Vote Tracking**
 - **Public Information**: Vote counts for each project, project details
@@ -100,10 +101,11 @@ A database view that provides public voting information without exposing individ
 - 🔒 Voter identity
 
 ### Validation
-- Students cannot vote for their own projects
+- Students cannot vote for their own projects or their team's projects (Fall semester)
 - Only one vote per project type (midterm/final)
 - Only public projects can receive votes
 - Proper authentication required
+- Team submissions are counted once but apply to all team members
 
 ## Usage
 
@@ -121,9 +123,25 @@ A database view that provides public voting information without exposing individ
 - All voting data respects privacy (no individual vote tracking visible)
 - Can see which projects are popular among students
 
+## Team Project Integration (Fall Semester)
+
+For Fall semester team-based projects, the voting system integrates seamlessly with the team management system:
+
+### Team Submission Considerations
+- **Single Project per Team**: Teams submit one project that represents all members
+- **Individual Voting**: Each student votes individually, but cannot vote for their team's project
+- **Score Attribution**: Votes are counted for the project (not individual team members)
+- **Display**: Projects show team information alongside individual submission details
+
+### Voting Validation
+- Students cannot vote for projects submitted by their own team
+- Team membership is checked when validating voting eligibility
+- Project listings show both individual and team submissions appropriately
+
 ## Technical Implementation Notes
 
 - **Database constraints** prevent duplicate votes per student per project type
+- **Team integration** validates voting eligibility against team membership
 - **React hooks** manage real-time state updates
 - **TypeScript interfaces** ensure type safety
 - **Error handling** provides clear feedback for invalid operations

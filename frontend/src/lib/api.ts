@@ -431,10 +431,21 @@ export interface Submission {
   lesson_id?: string;
   file_url?: string;
   files?: SubmissionFile[];
-  project_type?: 'midterm' | 'final';
+  project_type?: 'midterm' | 'final' | 'project3';
   is_public?: boolean;
   created_at: string;
   updated_at: string;
+  team_id?: number;
+  team?: {
+    team_id: number;
+    team_name: string;
+    project_number: number;
+    semester_id: string;
+    members: Array<{
+      student_id: string;
+      full_name: string;
+    }>;
+  };
 }
 
 export interface SubmissionsResponse {
@@ -489,11 +500,15 @@ export const getSubmissionsForSemester = async (
   return response.data.data;
 };
 
-export const uploadSubmission = async (formData: FormData): Promise<Submission> => {
+export const uploadSubmission = async (formData: FormData, semesterCode?: string): Promise<Submission> => {
+  const headers: any = {
+    'Content-Type': 'multipart/form-data',
+  };
+  if (semesterCode) {
+    headers['x-semester-code'] = semesterCode;
+  }
   const response = await api.post<SubmissionUploadResponse>('/api/submissions', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
+    headers,
   });
   if (!response.data.success) {
     throw new Error(response.data.error || 'Failed to upload submission');
@@ -1428,6 +1443,7 @@ export interface ProjectTeam {
   member_count: number;
   members: Array<{
     student_id: string;
+    full_name: string;
     joined_at: string;
   }>;
   created_at: string;
@@ -1597,6 +1613,70 @@ export const deleteTeam = async (teamId: number, adminId: string): Promise<{succ
     throw new Error(response.data.error || 'Failed to delete team');
   }
   return response.data;
+};
+
+// Get student's team for a specific project
+export const getStudentTeam = async (
+  studentId: string,
+  semesterId: string, 
+  projectNumber: number
+): Promise<ProjectTeam | null> => {
+  try {
+    const response = await api.get<{success: boolean; data: {team: ProjectTeam | null; in_team: boolean}}>(`/api/teams/student/${studentId}`, {
+      params: {
+        semester_id: semesterId,
+        project_number: projectNumber
+      }
+    });
+    
+    if (!response.data.success) {
+      throw new Error('Failed to fetch student team');
+    }
+    
+    return response.data.data.team;
+  } catch (error) {
+    console.error('Error fetching student team:', error);
+    return null;
+  }
+};
+
+// Team submission status interface
+export interface TeamSubmissionStatus {
+  hasTeamSubmitted: boolean;
+  hasIndividualSubmitted: boolean;
+  submission: Submission | null;
+  team: {
+    team_id: number;
+    team_name: string;
+    project_number: number;
+    members: string[];
+  } | null;
+}
+
+// Get team submission status for a specific project
+export const getTeamSubmissionStatus = async (
+  studentId: string,
+  projectType: 'midterm' | 'final' | 'project3',
+  semesterId: string
+): Promise<TeamSubmissionStatus | null> => {
+  try {
+    const response = await api.get<{success: boolean; data: TeamSubmissionStatus}>('/api/submissions/team-status', {
+      params: {
+        student_id: studentId,
+        project_type: projectType,
+        semester_id: semesterId
+      }
+    });
+    
+    if (!response.data.success) {
+      throw new Error('Failed to fetch team submission status');
+    }
+    
+    return response.data.data;
+  } catch (error) {
+    console.error('Error fetching team submission status:', error);
+    return null;
+  }
 };
 
 export default api;

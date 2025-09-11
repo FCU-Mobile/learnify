@@ -80,6 +80,120 @@ router.get('/', async (req: Request, res: Response) => {
     }
 });
 
+// Get student's team for a specific project
+router.get('/student/:studentId', async (req: Request, res: Response) => {
+    try {
+        const { studentId } = req.params;
+        const { semester_id, project_number } = req.query;
+        
+        if (!semester_id || !project_number) {
+            return res.status(400).json({
+                success: false,
+                error: 'semester_id and project_number are required'
+            });
+        }
+
+        // Get student's team membership for this project
+        const { data: teamMembership, error } = await supabase
+            .from('team_members')
+            .select(`
+                team_id,
+                project_teams!inner(
+                    id,
+                    team_name,
+                    project_number,
+                    semester_id,
+                    created_at
+                )
+            `)
+            .eq('student_id', studentId)
+            .eq('project_teams.project_number', parseInt(project_number as string))
+            .eq('project_teams.semester_id', semester_id)
+            .single();
+
+        if (error && error.code !== 'PGRST116') {
+            throw error;
+        }
+
+        if (!teamMembership) {
+            return res.json({
+                success: true,
+                data: {
+                    team: null,
+                    in_team: false
+                }
+            });
+        }
+
+        // Get all team members for the SPECIFIC team that matches this project/semester
+        // This ensures we only count members for the current team context, not historical data
+        const { data: allMembers, error: membersError } = await supabase
+            .from('team_members')
+            .select(`
+                student_id, 
+                created_at,
+                project_teams!inner(
+                    project_number,
+                    semester_id
+                )
+            `)
+            .eq('team_id', teamMembership.team_id)
+            .eq('project_teams.project_number', parseInt(project_number as string))
+            .eq('project_teams.semester_id', semester_id);
+
+        if (membersError) {
+            throw membersError;
+        }
+
+        // Get student names for all team members
+        const studentIds = allMembers?.map(m => m.student_id) || [];
+        const { data: studentsData, error: studentsError } = await supabase
+            .from('students')
+            .select('student_id, full_name')
+            .in('student_id', studentIds);
+
+        if (studentsError) {
+            throw studentsError;
+        }
+
+        // Create a map of student_id to full_name for easy lookup
+        const studentNameMap = new Map(studentsData?.map(s => [s.student_id, s.full_name]) || []);
+
+        const teamData = Array.isArray(teamMembership.project_teams) 
+            ? teamMembership.project_teams[0] 
+            : teamMembership.project_teams;
+            
+        const team = {
+            team_id: teamData.id,
+            team_name: teamData.team_name,
+            project_number: teamData.project_number,
+            semester_id: teamData.semester_id,
+            created_at: teamData.created_at,
+            member_count: allMembers?.length || 0,
+            members: allMembers?.map(m => ({
+                student_id: m.student_id,
+                full_name: studentNameMap.get(m.student_id) || 'Unknown',
+                joined_at: m.created_at
+            })) || []
+        };
+
+        res.json({
+            success: true,
+            data: {
+                team,
+                in_team: true
+            }
+        });
+
+    } catch (error: any) {
+        console.error('Error fetching student team:', error);
+        res.status(400).json({
+            success: false,
+            error: error.message || 'Failed to fetch student team'
+        });
+    }
+});
+
 // Get unassigned students for a project
 router.get('/unassigned', async (req: Request, res: Response) => {
     try {

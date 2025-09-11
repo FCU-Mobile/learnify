@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Github, Calendar, User, BookOpen, GraduationCap, ExternalLink, Image as ImageIcon, StickyNote, Edit2, Trash2, Save, Plus, Loader, ZoomIn } from 'lucide-react';
+import { ArrowLeft, Github, Calendar, User, Users, BookOpen, GraduationCap, Layers, ExternalLink, Image as ImageIcon, StickyNote, Edit2, Trash2, Save, Plus, Loader, ZoomIn } from 'lucide-react';
 import { getSubmission, getProjectNote, createOrUpdateProjectNote, deleteProjectNote, updateProjectScreenshots, deleteProjectScreenshot } from '../lib/api';
 import type { Submission, ProjectNote } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useSemester } from '../contexts/SemesterContext';
 import ImageGallery from '../components/ImageGallery';
 import ProjectVoteButton from '../components/ProjectVoteButton';
 import EditProjectModal from '../components/EditProjectModal';
@@ -11,6 +12,7 @@ import EditProjectModal from '../components/EditProjectModal';
 const ProjectDetailPage: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const { studentId } = useAuth();
+  const { selectedSemester } = useSemester();
   
   const [project, setProject] = useState<Submission | null>(null);
   const [note, setNote] = useState<ProjectNote | null>(null);
@@ -49,6 +51,53 @@ const ProjectDetailPage: React.FC = () => {
       if (project.submission_type !== 'project') {
         setError('This is not a project submission');
         return;
+      }
+      
+      // Check if project belongs to current semester
+      // Get current semester ID based on selectedSemester code
+      const semesterMap: { [key: string]: string } = {
+        'fall_2025': 'de7997b8-9f8a-44df-8e9f-8bd7fa3cd5e6',
+        'summer_2025': '4cacd6c2-3778-4596-ad79-125246e42969'
+      };
+      
+      const currentSemesterId = selectedSemester ? semesterMap[selectedSemester] : null;
+      const summerSemesterId = semesterMap['summer_2025'];
+      const fallSemesterId = semesterMap['fall_2025'];
+      
+      // Semester viewing rules:
+      // 1. Fall projects can only be viewed when Fall is selected
+      // 2. Summer projects can only be viewed when Summer is selected  
+      // 3. Legacy projects (no semester_id) can only be viewed when Summer is selected
+      
+      if (selectedSemester === 'fall_2025') {
+        // When Fall is selected, only allow Fall projects
+        if (!project.semester_id || project.semester_id !== fallSemesterId) {
+          if (!project.semester_id) {
+            setError(`This is a legacy project. Switch to Summer semester to view it.`);
+          } else if (project.semester_id === summerSemesterId) {
+            setError(`This project belongs to Summer semester. Switch to Summer semester to view it.`);
+          } else {
+            setError(`This project belongs to a different semester.`);
+          }
+          return;
+        }
+      } else if (selectedSemester === 'summer_2025') {
+        // When Summer is selected, allow Summer projects and legacy projects
+        if (project.semester_id && project.semester_id !== summerSemesterId) {
+          if (project.semester_id === fallSemesterId) {
+            setError(`This project belongs to Fall semester. Switch to Fall semester to view it.`);
+          } else {
+            setError(`This project belongs to a different semester.`);
+          }
+          return;
+        }
+        // Allow: project.semester_id === null (legacy) OR project.semester_id === summerSemesterId
+      } else {
+        // No semester selected - treat as Summer (allow legacy and Summer projects)
+        if (project.semester_id && project.semester_id !== summerSemesterId) {
+          setError(`Please select the appropriate semester to view this project.`);
+          return;
+        }
       }
       
       setProject(project);
@@ -183,8 +232,12 @@ const ProjectDetailPage: React.FC = () => {
     }
   };
 
-  const canUpdateScreenshots = project && project.student_id === studentId;
-  const canEditProject = project && project.student_id === studentId;
+  // Check if user can edit (either owner or team member)
+  const isTeamMember = project?.team?.members?.some(
+    member => (typeof member === 'string' ? member : member.student_id) === studentId
+  );
+  const canUpdateScreenshots = project && (project.student_id === studentId || isTeamMember);
+  const canEditProject = project && (project.student_id === studentId || isTeamMember);
 
   const handleEditProject = () => {
     setIsEditingProject(true);
@@ -200,15 +253,53 @@ const ProjectDetailPage: React.FC = () => {
   };
 
   const getProjectTypeIcon = (type: string) => {
-    return type === 'midterm' ? 
-      <BookOpen className="w-5 h-5" /> : 
-      <GraduationCap className="w-5 h-5" />;
+    switch (type) {
+      case 'midterm':
+        return <BookOpen className="w-5 h-5" />;
+      case 'final':
+        return <GraduationCap className="w-5 h-5" />;
+      case 'project3':
+        return <Layers className="w-5 h-5" />;
+      default:
+        return <BookOpen className="w-5 h-5" />;
+    }
   };
 
   const getProjectTypeColor = (type: string) => {
-    return type === 'midterm' ? 
-      'bg-blue-100 text-blue-800' : 
-      'bg-purple-100 text-purple-800';
+    switch (type) {
+      case 'midterm':
+        return 'bg-blue-100 text-blue-800';
+      case 'final':
+        return 'bg-purple-100 text-purple-800';
+      case 'project3':
+        return 'bg-green-100 text-green-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getProjectTypeLabel = (type: string) => {
+    if (selectedSemester === 'fall_2025') {
+      switch (type) {
+        case 'midterm':
+          return 'Project 1';
+        case 'final':
+          return 'Project 2';
+        case 'project3':
+          return 'Project 3';
+        default:
+          return 'Project 1';
+      }
+    } else {
+      switch (type) {
+        case 'midterm':
+          return 'Midterm Project';
+        case 'final':
+          return 'Final Project';
+        default:
+          return 'Midterm Project';
+      }
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -283,13 +374,23 @@ const ProjectDetailPage: React.FC = () => {
             </div>
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
-                <User className="w-4 h-4 text-gray-400" />
-                <span className="text-sm font-medium text-gray-900">{project.student_name}</span>
-                <span className="text-sm text-gray-500">({project.student_id})</span>
+                {project.team ? (
+                  <>
+                    <Users className="w-4 h-4 text-purple-500" />
+                    <span className="text-sm font-medium text-gray-900">{project.team.team_name}</span>
+                    <span className="text-sm text-gray-500">({project.team.members?.length || 0} members)</span>
+                  </>
+                ) : (
+                  <>
+                    <User className="w-4 h-4 text-gray-400" />
+                    <span className="text-sm font-medium text-gray-900">{project.student_name}</span>
+                    <span className="text-sm text-gray-500">({project.student_id})</span>
+                  </>
+                )}
               </div>
               <div className={`inline-flex items-center space-x-1 px-3 py-1 rounded-full text-xs font-medium ${getProjectTypeColor(project.project_type || 'midterm')}`}>
                 {getProjectTypeIcon(project.project_type || 'midterm')}
-                <span className="capitalize">{project.project_type || 'midterm'} Project</span>
+                <span>{getProjectTypeLabel(project.project_type || 'midterm')}</span>
               </div>
               <div className="flex items-center space-x-2 text-sm text-gray-500">
                 <Calendar className="w-4 h-4" />
@@ -298,8 +399,33 @@ const ProjectDetailPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Voting Section */}
-          {project.is_public && project.project_type && (
+          {/* Team Members */}
+          {project.team && project.team.members && project.team.members.length > 0 && (
+            <div className="mb-6 pb-6 border-b border-gray-100">
+              <h3 className="text-sm font-medium text-gray-700 mb-3">Team Members</h3>
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                <div className="flex items-center space-x-2 mb-3">
+                  <Users className="w-5 h-5 text-purple-600" />
+                  <span className="text-sm font-medium text-purple-800">
+                    {project.team.team_name} ({project.team.members.length} members)
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {project.team.members.map((member, index) => (
+                    <span
+                      key={member.student_id || index}
+                      className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-purple-100 text-purple-700"
+                    >
+                      {typeof member === 'string' ? member : `${member.full_name} (${member.student_id})`}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Voting Section - Hidden for Fall semester */}
+          {project.is_public && project.project_type && selectedSemester !== 'fall_2025' && (
             <div className="mb-6 pb-6 border-b border-gray-100">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-medium text-gray-700 mb-2">Class Voting</h3>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Github, Calendar, User, BookOpen, GraduationCap, Image as ImageIcon, ExternalLink, X, ZoomIn, Heart, Layers } from 'lucide-react';
+import { Github, Calendar, User, Users, BookOpen, GraduationCap, Image as ImageIcon, ExternalLink, X, ZoomIn, Heart, Layers } from 'lucide-react';
 import { getPublicProjectsForSemester, getProjectVotesForSemester, type Submission, type ProjectWithVotes } from '../lib/api';
 import { useSemester } from '../contexts/SemesterContext';
 import ImageGallery from './ImageGallery';
@@ -198,8 +198,19 @@ const ProjectShowcase: React.FC<ProjectShowcaseProps> = ({ filterType = 'all' })
                     </h3>
                     <div className="flex items-center space-x-4 mt-1">
                       <div className="flex items-center space-x-2">
-                        <User className="w-4 h-4 text-gray-400" />
-                        <span className="text-sm text-gray-600">{project.student_id}</span>
+                        {project.team ? (
+                          <>
+                            <Users className="w-4 h-4 text-purple-500" />
+                            <span className="text-sm text-gray-600">
+                              Team: {project.team.team_name}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <User className="w-4 h-4 text-gray-400" />
+                            <span className="text-sm text-gray-600">{project.student_id}</span>
+                          </>
+                        )}
                       </div>
                       <div className="flex items-center space-x-1 text-red-500">
                         <Heart className="w-4 h-4" />
@@ -226,6 +237,28 @@ const ProjectShowcase: React.FC<ProjectShowcaseProps> = ({ filterType = 'all' })
                   <p className="text-gray-600 text-sm mb-4 line-clamp-3">
                     {project.description}
                   </p>
+                )}
+
+                {/* Team Members */}
+                {project.team && project.team.members && project.team.members.length > 0 && (
+                  <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Users className="w-4 h-4 text-purple-600" />
+                      <span className="text-sm font-medium text-purple-800">
+                        Team Members ({project.team.members.length})
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {project.team.members.map((member, index) => (
+                        <span
+                          key={index}
+                          className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700"
+                        >
+                          {typeof member === 'string' ? member : `${member.full_name} (${member.student_id})`}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 )}
 
                 {/* GitHub Link */}
