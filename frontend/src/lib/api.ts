@@ -1679,4 +1679,167 @@ export const getTeamSubmissionStatus = async (
   }
 };
 
+// Teacher Rating System interfaces
+export interface TeacherRating {
+  id: number;
+  team_id: number;
+  project_number: number;
+  teacher_rating: number;
+  teacher_id: string;
+  semester_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StudentStarRating {
+  id: number;
+  team_id: number;
+  project_number: number;
+  student_id: string;
+  star_rating: number;
+  semester_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface VotingResult {
+  id: number;
+  team_id: number;
+  project_number: number;
+  semester_id: string;
+  total_stars: number;
+  star_count: number;
+  average_stars: number;
+  ranking: number;
+  voting_score: number;
+  teacher_rating: number;
+  total_score: number;
+  team_name?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RatingSubmissionRequest {
+  team_id: number;
+  project_number: number;
+  rating: number;
+  teacher_id: string;
+  semester_id: string;
+}
+
+export interface StarRatingSubmissionRequest {
+  team_id: number;
+  project_number: number;
+  star_rating: number;
+  student_id: string;
+  semester_id: string;
+}
+
+export interface RatingResponse {
+  success: boolean;
+  data: TeacherRating | StudentStarRating;
+  message: string;
+}
+
+export interface VotingCalculationResponse {
+  success: boolean;
+  data: {
+    results: VotingResult[];
+    total_teams: number;
+  };
+  message: string;
+}
+
+// Teacher Rating API functions
+
+// Submit or update teacher rating
+export const submitTeacherRating = async (
+  teamId: number,
+  projectNumber: number,
+  rating: number,
+  teacherId: string,
+  semesterId: string
+): Promise<TeacherRating> => {
+  const response = await api.post<RatingResponse>('/api/ratings/teacher', {
+    team_id: teamId,
+    project_number: projectNumber,
+    rating,
+    teacher_id: teacherId,
+    semester_id: semesterId
+  });
+  
+  if (!response.data.success) {
+    throw new Error(response.data.message || 'Failed to submit teacher rating');
+  }
+  
+  return response.data.data as TeacherRating;
+};
+
+// Submit or update student star rating
+export const submitStudentRating = async (
+  teamId: number,
+  projectNumber: number,
+  starRating: number,
+  studentId: string,
+  semesterId: string
+): Promise<StudentStarRating> => {
+  const response = await api.post<RatingResponse>('/api/ratings/student', {
+    team_id: teamId,
+    project_number: projectNumber,
+    star_rating: starRating,
+    student_id: studentId,
+    semester_id: semesterId
+  });
+  
+  if (!response.data.success) {
+    throw new Error(response.data.message || 'Failed to submit student rating');
+  }
+  
+  return response.data.data as StudentStarRating;
+};
+
+// Calculate voting scores and rankings
+export const calculateVotingScores = async (
+  projectType: 'midterm' | 'final' | 'project3',
+  semesterId: string,
+  adminId: string
+): Promise<VotingResult[]> => {
+  const projectNumberMap = { midterm: 1, final: 2, project3: 3 };
+  const projectNumber = projectNumberMap[projectType];
+  
+  const response = await api.post<VotingCalculationResponse>('/api/ratings/calculate-scores', {
+    project_number: projectNumber,
+    semester_id: semesterId,
+    admin_id: adminId
+  });
+  
+  if (!response.data.success) {
+    throw new Error(response.data.message || 'Failed to calculate voting scores');
+  }
+  
+  return response.data.data.results;
+};
+
+// Get project ratings for a specific project type and semester
+export const getProjectRatings = async (
+  projectType: 'midterm' | 'final' | 'project3',
+  semesterId: string
+): Promise<TeacherRating[]> => {
+  const projectNumberMap = { midterm: 1, final: 2, project3: 3 };
+  const projectNumber = projectNumberMap[projectType];
+  
+  const response = await api.get<{success: boolean; data: {teacher_ratings: TeacherRating[], voting_results: any[], star_ratings: any[]}}>('/api/ratings/results', {
+    params: {
+      project_number: projectNumber,
+      semester_id: semesterId
+    }
+  });
+  
+  if (!response.data.success) {
+    throw new Error('Failed to fetch project ratings');
+  }
+  
+  return response.data.data.teacher_ratings || [];
+};
+
 export default api;

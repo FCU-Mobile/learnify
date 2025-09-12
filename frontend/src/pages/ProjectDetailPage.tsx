@@ -8,11 +8,12 @@ import { useSemester } from '../contexts/SemesterContext';
 import ImageGallery from '../components/ImageGallery';
 import ProjectVoteButton from '../components/ProjectVoteButton';
 import EditProjectModal from '../components/EditProjectModal';
+import TeacherRating from '../components/TeacherRating';
 
 const ProjectDetailPage: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const { studentId } = useAuth();
-  const { selectedSemester } = useSemester();
+  const { selectedSemester, availableSemesters } = useSemester();
   
   const [project, setProject] = useState<Submission | null>(null);
   const [note, setNote] = useState<ProjectNote | null>(null);
@@ -53,51 +54,33 @@ const ProjectDetailPage: React.FC = () => {
         return;
       }
       
-      // Check if project belongs to current semester
-      // Get current semester ID based on selectedSemester code
-      const semesterMap: { [key: string]: string } = {
-        'fall_2025': 'de7997b8-9f8a-44df-8e9f-8bd7fa3cd5e6',
-        'summer_2025': '4cacd6c2-3778-4596-ad79-125246e42969'
-      };
-      
-      const currentSemesterId = selectedSemester ? semesterMap[selectedSemester] : null;
-      const summerSemesterId = semesterMap['summer_2025'];
-      const fallSemesterId = semesterMap['fall_2025'];
-      
-      // Semester viewing rules:
-      // 1. Fall projects can only be viewed when Fall is selected
-      // 2. Summer projects can only be viewed when Summer is selected  
-      // 3. Legacy projects (no semester_id) can only be viewed when Summer is selected
-      
-      if (selectedSemester === 'fall_2025') {
-        // When Fall is selected, only allow Fall projects
-        if (!project.semester_id || project.semester_id !== fallSemesterId) {
-          if (!project.semester_id) {
-            setError(`This is a legacy project. Switch to Summer semester to view it.`);
-          } else if (project.semester_id === summerSemesterId) {
-            setError(`This project belongs to Summer semester. Switch to Summer semester to view it.`);
-          } else {
-            setError(`This project belongs to a different semester.`);
+      // Check if project belongs to current semester using dynamic semester data
+      if (availableSemesters.length > 0) {
+        const selectedSemesterData = availableSemesters.find(s => s.code === selectedSemester);
+        const projectSemesterData = project.semester_id ? 
+          availableSemesters.find(s => s.id === project.semester_id) : null;
+        
+        // Semester viewing rules:
+        // 1. If a semester is selected, only show projects from that semester
+        // 2. Legacy projects (no semester_id) can be viewed in any semester context
+        // 3. If no semester is selected, allow all projects
+        
+        if (selectedSemester && selectedSemesterData) {
+          // A semester is selected - check if project belongs to it
+          if (project.semester_id && project.semester_id !== selectedSemesterData.id) {
+            const projectSemesterName = projectSemesterData?.name || 'Unknown Semester';
+            setError(`This project belongs to ${projectSemesterName}. Switch to that semester to view it.`);
+            return;
           }
-          return;
+          // Allow: project.semester_id === null (legacy) OR project.semester_id === selectedSemesterData.id
         }
-      } else if (selectedSemester === 'summer_2025') {
-        // When Summer is selected, allow Summer projects and legacy projects
-        if (project.semester_id && project.semester_id !== summerSemesterId) {
-          if (project.semester_id === fallSemesterId) {
-            setError(`This project belongs to Fall semester. Switch to Fall semester to view it.`);
-          } else {
-            setError(`This project belongs to a different semester.`);
-          }
-          return;
-        }
-        // Allow: project.semester_id === null (legacy) OR project.semester_id === summerSemesterId
-      } else {
-        // No semester selected - treat as Summer (allow legacy and Summer projects)
-        if (project.semester_id && project.semester_id !== summerSemesterId) {
-          setError(`Please select the appropriate semester to view this project.`);
-          return;
-        }
+        
+        console.log('ProjectDetailPage: Semester validation passed', {
+          selectedSemester,
+          selectedSemesterData: selectedSemesterData?.name,
+          projectSemesterId: project.semester_id,
+          projectSemesterData: projectSemesterData?.name
+        });
       }
       
       setProject(project);
@@ -440,6 +423,18 @@ const ProjectDetailPage: React.FC = () => {
                   ℹ️ You cannot vote for your own project
                 </p>
               )}
+            </div>
+          )}
+
+          {/* Teacher Rating Section - Only for Fall semester projects */}
+          {project.project_type && selectedSemester === 'fall_2025' && (
+            <div className="mb-6 pb-6 border-b border-gray-100">
+              <TeacherRating
+                submissionId={project.id}
+                projectType={project.project_type as 'midterm' | 'final' | 'project3'}
+                semesterId={project.semester_id || ''}
+                teamId={project.team_id}
+              />
             </div>
           )}
 

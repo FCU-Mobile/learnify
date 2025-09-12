@@ -21,6 +21,7 @@ import votingRouter from './routes/voting';
 import feedbackRouter from './routes/feedback';
 import semestersRouter from './routes/semesters';
 import teamsRouter from './routes/teams';
+import ratingsRouter from './routes/ratings';
 import { config } from './config/supabase';
 
 // Load environment variables
@@ -75,6 +76,7 @@ app.use('/api/voting', votingRouter);
 app.use('/api/feedback', feedbackRouter);
 app.use('/api/semesters', semestersRouter);
 app.use('/api/teams', teamsRouter);
+app.use('/api/ratings', ratingsRouter);
 
 // Root endpoint
 app.get('/', (req: Request, res: Response) => {

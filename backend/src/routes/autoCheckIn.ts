@@ -243,7 +243,7 @@ router.get('/auto/students/:student_id', async (req: Request, res: Response) => 
     // Look up student
     const { data: student, error: studentError } = await supabaseAdmin
       .from('students')
-      .select('id, student_id, full_name, created_at')
+      .select('id, student_id, full_name, created_at, is_admin')
       .eq('student_id', student_id)
       .single();
 
@@ -262,7 +262,8 @@ router.get('/auto/students/:student_id', async (req: Request, res: Response) => 
           student_id: student.student_id,
           full_name: student.full_name,
           uuid: student.id,
-          created_at: student.created_at
+          created_at: student.created_at,
+          is_admin: student.is_admin || false
         }
       }
     });

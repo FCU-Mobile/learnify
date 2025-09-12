@@ -5,6 +5,7 @@ import { checkStudentExists, getStudent } from '../lib/api';
 interface AuthContextType {
   studentId: string | null;
   isAuthenticated: boolean;
+  isAdmin: boolean;
   login: (studentId: string) => Promise<void>;
   logout: () => void;
   loginError: string | null;
@@ -28,6 +29,7 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [studentId, setStudentId] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
@@ -46,6 +48,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (exists) {
         setStudentId(storedId);
         setIsAuthenticated(true);
+        // Check if user is admin
+        try {
+          const student = await getStudent(storedId);
+          setIsAdmin(student.is_admin || false);
+        } catch {
+          setIsAdmin(false);
+        }
       } else {
         // Student no longer exists, clear storage
         localStorage.removeItem('studentId');
@@ -73,10 +82,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Fetch student information from the backend
       const student = await getStudent(trimmedStudentId);
       const studentName = student.full_name;
+      const adminStatus = student.is_admin || false;
 
       // If validation passes, set authentication
       setStudentId(trimmedStudentId);
       setIsAuthenticated(true);
+      setIsAdmin(adminStatus);
       localStorage.setItem('studentId', trimmedStudentId);
       localStorage.setItem('studentName', studentName);
       setLoginError(null);
@@ -94,6 +105,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const logout = () => {
     setStudentId(null);
     setIsAuthenticated(false);
+    setIsAdmin(false);
     setLoginError(null);
     localStorage.removeItem('studentId');
     localStorage.removeItem('studentName');
@@ -102,6 +114,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const value = {
     studentId,
     isAuthenticated,
+    isAdmin,
     login,
     logout,
     loginError,
