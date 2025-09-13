@@ -9,10 +9,12 @@ import ImageGallery from '../components/ImageGallery';
 import ProjectVoteButton from '../components/ProjectVoteButton';
 import EditProjectModal from '../components/EditProjectModal';
 import TeacherRating from '../components/TeacherRating';
+import StudentRating from '../components/StudentRating';
+import StarRatingSummary from '../components/StarRatingSummary';
 
 const ProjectDetailPage: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
-  const { studentId } = useAuth();
+  const { studentId, isAdmin } = useAuth();
   const { selectedSemester, availableSemesters } = useSemester();
   
   const [project, setProject] = useState<Submission | null>(null);
@@ -434,6 +436,33 @@ const ProjectDetailPage: React.FC = () => {
                 projectType={project.project_type as 'midterm' | 'final' | 'project3'}
                 semesterId={project.semester_id || ''}
                 teamId={project.team_id}
+              />
+            </div>
+          )}
+
+          {/* Student Peer Rating Section - Only for Fall semester projects and non-admin users */}
+          {project.project_type && selectedSemester === 'fall_2025' && !isAdmin && (
+            <div className="mb-6 pb-6 border-b border-gray-100">
+              <StudentRating
+                submissionId={project.id}
+                projectType={project.project_type as 'midterm' | 'final' | 'project3'}
+                semesterId={project.semester_id || ''}
+                teamId={project.team_id}
+                isOwnProject={project.student_id === studentId || isTeamMember}
+                projectTitle={project.title}
+              />
+            </div>
+          )}
+
+          {/* Star Rating Summary - Show total stars for Fall semester projects */}
+          {project.project_type && selectedSemester === 'fall_2025' && (
+            <div className="mb-6 pb-6 border-b border-gray-100">
+              <StarRatingSummary
+                submissionId={project.id}
+                projectType={project.project_type as 'midterm' | 'final' | 'project3'}
+                semesterId={project.semester_id || ''}
+                teamId={project.team_id}
+                projectTitle={project.title}
               />
             </div>
           )}
