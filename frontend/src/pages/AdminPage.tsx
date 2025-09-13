@@ -6,6 +6,7 @@ import { getAdminStatus, getAllStudentsAsAdmin, deleteStudent, getAllLessons as 
 import type { Student, AdminStatus, Lesson, QuizScoreFixResponse, BonusCalculationResponse, FeedbackAnalytics, StudentFeedback, SemesterStats } from '../lib/api';
 import SemesterSelector from '../components/SemesterSelector';
 import TeamManagement from '../components/TeamManagement';
+import AdminProjectsView from '../components/AdminProjectsView';
 
 const AdminPage: React.FC = () => {
   const { studentId } = useAuth();
@@ -24,7 +25,7 @@ const AdminPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
   const [statusUpdateLoading, setStatusUpdateLoading] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'students' | 'lessons' | 'teams' | 'system' | 'feedback'>('students');
+  const [activeTab, setActiveTab] = useState<'students' | 'lessons' | 'teams' | 'projects' | 'system' | 'feedback'>('students');
   const [fixScoreLoading, setFixScoreLoading] = useState(false);
   const [fixScoreResult, setFixScoreResult] = useState<QuizScoreFixResponse | null>(null);
   const [bonusLoading, setBonusLoading] = useState<'midterm' | 'final' | null>(null);
@@ -445,6 +446,19 @@ const AdminPage: React.FC = () => {
                   Teams
                 </button>
               )}
+              {isFallSemester && (
+                <button
+                  onClick={() => setActiveTab('projects')}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+                    activeTab === 'projects'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <i className="fas fa-project-diagram mr-2"></i>
+                  Projects
+                </button>
+              )}
               {!isFallSemester && (
                 <button
                   onClick={() => setActiveTab('system')}
@@ -755,6 +769,15 @@ const AdminPage: React.FC = () => {
                 semesterId={selectedSemesterId || ""} 
                 adminId={studentId || "ADMIN001"} 
               />
+            </div>
+          </div>
+        )}
+
+        {/* Projects Tab */}
+        {isFallSemester && activeTab === 'projects' && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="p-6">
+              <AdminProjectsView semesterId={selectedSemesterId || selectedSemester || ""} />
             </div>
           </div>
         )}

@@ -1060,6 +1060,58 @@ export const removeVote = async (studentId: string, projectType: 'midterm' | 'fi
   return response.data;
 };
 
+// Helper function to vote on behalf of multiple students
+export interface BulkVoteResult {
+  success: number;
+  failed: number;
+  errors: string[];
+  details: Array<{
+    student_id: string;
+    success: boolean;
+    error?: string;
+  }>;
+}
+
+export const voteOnBehalfOfStudents = async (
+  submissionId: number,
+  projectType: 'midterm' | 'final',
+  studentIds: string[]
+): Promise<BulkVoteResult> => {
+  const results: BulkVoteResult = {
+    success: 0,
+    failed: 0,
+    errors: [],
+    details: []
+  };
+
+  for (const studentId of studentIds) {
+    try {
+      await castVote({
+        student_id: studentId,
+        submission_id: submissionId,
+        project_type: projectType
+      });
+      
+      results.success++;
+      results.details.push({
+        student_id: studentId,
+        success: true
+      });
+    } catch (error: any) {
+      results.failed++;
+      const errorMessage = error.message || 'Unknown error';
+      results.errors.push(`${studentId}: ${errorMessage}`);
+      results.details.push({
+        student_id: studentId,
+        success: false,
+        error: errorMessage
+      });
+    }
+  }
+
+  return results;
+};
+
 // Bonus calculation
 export interface BonusCalculationResponse {
   success: boolean;

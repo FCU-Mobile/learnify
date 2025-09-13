@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Github, Calendar, User, Users, BookOpen, GraduationCap, Image as ImageIcon, ExternalLink, X, ZoomIn, Heart, Layers } from 'lucide-react';
+import { Github, Calendar, User, Users, BookOpen, GraduationCap, Image as ImageIcon, ExternalLink, X, ZoomIn, Heart, Layers, Star, CheckCircle, Clock } from 'lucide-react';
 import { getPublicProjectsForSemester, getProjectVotesForSemester, type Submission, type ProjectWithVotes } from '../lib/api';
 import { useSemester } from '../contexts/SemesterContext';
 import ImageGallery from './ImageGallery';
@@ -17,6 +17,10 @@ const ProjectShowcase: React.FC<ProjectShowcaseProps> = ({ filterType = 'all' })
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<'all' | 'midterm' | 'final' | 'project3'>(filterType);
+  const [starRatingsData, setStarRatingsData] = useState<{[key: string]: any[]}>({});
+  const [teacherRatingsData, setTeacherRatingsData] = useState<{[key: string]: any[]}>({});
+  const [totalStudents, setTotalStudents] = useState<number>(0);
+  const [studentOnlyCount, setStudentOnlyCount] = useState<number>(0);
 
   useEffect(() => {
     fetchProjects();
@@ -27,15 +31,86 @@ const ProjectShowcase: React.FC<ProjectShowcaseProps> = ({ filterType = 'all' })
       setLoading(true);
       setError(null);
       
-      const [projectsData, midtermVotesData, finalVotesData] = await Promise.all([
+      const promises = [
         getPublicProjectsForSemester(selectedSemester || undefined),
         getProjectVotesForSemester('midterm', selectedSemester || undefined).catch(() => []),
         getProjectVotesForSemester('final', selectedSemester || undefined).catch(() => [])
-      ]);
+      ];
+
+      // For fall semester, also fetch rating data and total students
+      if (selectedSemester === 'fall_2025') {
+        // First get the actual semester UUID
+        const semesterUuidPromise = fetch('/api/semesters').then(async res => {
+          const data = await res.json();
+          const fallSemester = data.data?.semesters?.find((s: any) => s.code === 'fall_2025');
+          console.log('Semester lookup:', { data, fallSemester, uuid: fallSemester?.id });
+          return fallSemester?.id || 'fall_2025'; // fallback to code if UUID not found
+        }).catch(() => 'fall_2025');
+        
+        promises.push(
+          semesterUuidPromise.then(semesterId => 
+            fetch(`/api/ratings/results?project_number=1&semester_id=${semesterId}`).then(res => res.json()).catch(() => ({ success: false, data: {} }))
+          ),
+          semesterUuidPromise.then(semesterId => 
+            fetch(`/api/ratings/results?project_number=2&semester_id=${semesterId}`).then(res => res.json()).catch(() => ({ success: false, data: {} }))
+          ),
+          semesterUuidPromise.then(semesterId => 
+            fetch(`/api/ratings/results?project_number=3&semester_id=${semesterId}`).then(res => res.json()).catch(() => ({ success: false, data: {} }))
+          ),
+          // Fetch total students
+          fetch(`/api/leaderboard?semester=fall_2025`).then(res => res.json()).catch(() => ({ success: false, data: { leaderboard: [] } }))
+        );
+      }
+
+      const results = await Promise.all(promises);
+      const [projectsData, midtermVotesData, finalVotesData, ...ratingResults] = results;
       
       setProjects(projectsData);
       setMidtermVotes(midtermVotesData);
       setFinalVotes(finalVotesData);
+
+      if (selectedSemester === 'fall_2025' && ratingResults.length >= 4) {
+        const [project1Ratings, project2Ratings, project3Ratings, leaderboardData] = ratingResults;
+        
+        // Process star ratings
+        const starRatings: {[key: string]: any[]} = {};
+        if (project1Ratings.success && project1Ratings.data.star_ratings) {
+          starRatings['midterm'] = project1Ratings.data.star_ratings;
+        }
+        if (project2Ratings.success && project2Ratings.data.star_ratings) {
+          starRatings['final'] = project2Ratings.data.star_ratings;
+        }
+        if (project3Ratings.success && project3Ratings.data.star_ratings) {
+          starRatings['project3'] = project3Ratings.data.star_ratings;
+        }
+        setStarRatingsData(starRatings);
+
+        // Process teacher ratings
+        const teacherRatings: {[key: string]: any[]} = {};
+        if (project1Ratings.success && project1Ratings.data.teacher_ratings) {
+          teacherRatings['midterm'] = project1Ratings.data.teacher_ratings;
+        }
+        if (project2Ratings.success && project2Ratings.data.teacher_ratings) {
+          teacherRatings['final'] = project2Ratings.data.teacher_ratings;
+        }
+        if (project3Ratings.success && project3Ratings.data.teacher_ratings) {
+          teacherRatings['project3'] = project3Ratings.data.teacher_ratings;
+        }
+        console.log('Teacher ratings data loaded:', teacherRatings);
+        setTeacherRatingsData(teacherRatings);
+
+        // Set total students and filter out teachers/admins
+        if (leaderboardData.success && leaderboardData.data.leaderboard) {
+          const allStudents = leaderboardData.data.leaderboard;
+          setTotalStudents(allStudents.length);
+          // Filter out teachers (assuming teachers have specific roles or identifiers)
+          // For now, only filter out teachers with student_id starting with 'T'
+          const studentsOnly = allStudents.filter((student: any) => 
+            !student.student_id?.startsWith('T')
+          );
+          setStudentOnlyCount(studentsOnly.length);
+        }
+      }
     } catch (err) {
       setError('Failed to load projects');
     } finally {
@@ -78,6 +153,51 @@ const ProjectShowcase: React.FC<ProjectShowcaseProps> = ({ filterType = 'all' })
     const votes = projectType === 'midterm' ? midtermVotes : finalVotes;
     const project = votes.find(v => v.submission_id === projectId);
     return project?.vote_count || 0;
+  };
+
+  const getEligibleVoters = (project: Submission): number => {
+    // For team projects, we need to get the actual team size
+    // If members array is empty but we have a team, we need to determine the team size differently
+    let teamMemberCount = 1; // default for solo projects
+    
+    if (project.team && project.team.members && project.team.members.length > 0) {
+      // Use actual member count if available
+      teamMemberCount = project.team.members.length;
+    } else if (project.team) {
+      // If we have a team but no members data, assume it's a 3-person team for fall semester
+      teamMemberCount = 3;
+    }
+    
+    const eligibleVoters = studentOnlyCount - teamMemberCount;
+    
+    
+    return eligibleVoters;
+  };
+
+  const getStarRatingCount = (projectId: number, projectType: string, starRatings: {[key: string]: any[]}, projectsData: Submission[]): number => {
+    if (selectedSemester !== 'fall_2025' || !starRatings[projectType]) {
+      return 0;
+    }
+    
+    const targetTeamId = projectsData.find(p => p.id === projectId)?.team?.team_id || projectId;
+    const projectRatings = starRatings[projectType].filter((rating: any) => 
+      rating.team_id === targetTeamId
+    );
+    
+    return projectRatings.length;
+  };
+
+  const hasTeacherRating = (projectId: number, projectType: string, teacherRatings: {[key: string]: any[]}, projectsData: Submission[]): boolean => {
+    if (selectedSemester !== 'fall_2025' || !teacherRatings[projectType]) {
+      return false;
+    }
+    
+    const project = projectsData.find(p => p.id === projectId);
+    const targetTeamId = project?.team?.team_id || projectId;
+    
+    return teacherRatings[projectType].some((rating: any) => 
+      rating.team_id === targetTeamId
+    );
   };
 
   const formatDate = (dateString: string) => {
@@ -212,10 +332,31 @@ const ProjectShowcase: React.FC<ProjectShowcaseProps> = ({ filterType = 'all' })
                           </>
                         )}
                       </div>
-                      <div className="flex items-center space-x-1 text-red-500">
-                        <Heart className="w-4 h-4" />
-                        <span className="text-sm font-medium">{getVoteCount(project.id, project.project_type || 'midterm')}</span>
-                      </div>
+                      {selectedSemester === 'fall_2025' ? (
+                        <div className="flex items-center space-x-3">
+                          {/* Student Rating Count */}
+                          <div className="flex items-center space-x-1 text-blue-500">
+                            <Star className="w-4 h-4" />
+                            <span className="text-sm font-medium">
+                              {getStarRatingCount(project.id, project.project_type || 'midterm', starRatingsData, projects)}/{getEligibleVoters(project)}
+                            </span>
+                          </div>
+                          
+                          {/* Teacher Rating Status */}
+                          <div className="flex items-center">
+                            {hasTeacherRating(project.id, project.project_type || 'midterm', teacherRatingsData, projects) ? (
+                              <span className="text-sm">✅</span>
+                            ) : (
+                              <Clock className="w-4 h-4 text-orange-500" />
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center space-x-1 text-red-500">
+                          <Heart className="w-4 h-4" />
+                          <span className="text-sm font-medium">{getVoteCount(project.id, project.project_type || 'midterm')}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className={`inline-flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium ${getProjectTypeColor(project.project_type || 'midterm')}`}>

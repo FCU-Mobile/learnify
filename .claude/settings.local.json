@@ -11,7 +11,8 @@
       "Bash(npm run type-check:*)",
       "mcp__filesystem__read_multiple_files",
       "mcp__filesystem__create_directory",
-      "mcp__filesystem__move_file"
+      "mcp__filesystem__move_file",
+      "Bash(jq:*)"
     ],
     "deny": [
       "Bash(rm:*)"
