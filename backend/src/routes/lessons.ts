@@ -42,6 +42,8 @@ router.get('/', async (req: Request, res: Response) => {
     const { status, include_plan } = req.query;
     const semester = req.headers['x-semester'] as string;
     
+    console.log(`📚 [${new Date().toLocaleTimeString()}] GET /api/lessons - semester: ${semester || 'none'}, user-agent: ${req.headers['user-agent']?.substring(0, 30) || 'unknown'}`);
+    
     // Build query
     let query = supabase
       .from('lessons')

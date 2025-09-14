@@ -12,6 +12,7 @@ import path from 'path';
 import { autoCheckInRouter } from './routes/autoCheckIn';
 import { reviewsRouter } from './routes/reviews';
 import leaderboardRouter from './routes/leaderboard';
+import fallLeaderboardRouter from './routes/fall-leaderboard';
 import adminRouter from './routes/admin';
 import lessonsRouter from './routes/lessons';
 import submissionsRouter from './routes/submissions';
@@ -67,6 +68,7 @@ app.get('/health', (req: Request, res: Response) => {
 app.use('/api', autoCheckInRouter);
 app.use('/api', reviewsRouter);
 app.use('/api', leaderboardRouter);
+app.use('/api/fall-leaderboard', fallLeaderboardRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/lessons', lessonsRouter);
 app.use('/api/submissions', submissionsRouter);

@@ -78,15 +78,7 @@ struct SubmissionsContainerView: View {
                 }
             }
             .background(Color(.systemGroupedBackground))
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    NavigationLink(destination: SettingsView()) {
-                        Image(systemName: "gear")
-                            .font(.body)
-                            .fontWeight(.medium)
-                    }
-                }
-            }
+            .appToolbar()
         }
     }
 }

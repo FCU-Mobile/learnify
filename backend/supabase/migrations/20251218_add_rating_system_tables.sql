@@ -143,7 +143,23 @@ GRANT USAGE ON SEQUENCE project_star_ratings_id_seq TO authenticated;
 GRANT USAGE ON SEQUENCE project_voting_results_id_seq TO authenticated;
 
 -- ============================================================================
--- PART 7: Comments for documentation
+-- PART 7: Optimized indexes for performance
+-- ============================================================================
+
+-- Create composite index for efficient team-semester-project lookups (Fall leaderboard)
+CREATE INDEX IF NOT EXISTS idx_project_ratings_team_semester_project
+ON project_ratings(team_id, semester_id, project_number);
+
+-- Add index for team_members queries used in the Fall leaderboard function
+CREATE INDEX IF NOT EXISTS idx_team_members_student_team
+ON team_members(student_id, team_id);
+
+-- Ensure we have index on project_teams for the joins
+CREATE INDEX IF NOT EXISTS idx_project_teams_id
+ON project_teams(id);
+
+-- ============================================================================
+-- PART 8: Comments for documentation
 -- ============================================================================
 
 COMMENT ON TABLE project_ratings IS 'Teacher ratings for team projects (0-20% scale)';
@@ -161,5 +177,6 @@ BEGIN
     RAISE NOTICE 'Teacher ratings: 0-20%% scale with unique constraint per team/project';
     RAISE NOTICE 'Student ratings: 1-5 stars with unique constraint per voter/team/project';
     RAISE NOTICE 'Voting results: Calculated scores with ranking system (10%%, 8%%, 6%%)';
+    RAISE NOTICE 'Performance indexes: Optimized for Fall leaderboard queries';
     RAISE NOTICE 'RLS policies: Read access for all, write access controlled by role';
 END $$;

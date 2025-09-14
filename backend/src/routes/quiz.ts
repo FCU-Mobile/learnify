@@ -3,6 +3,51 @@ import { supabase } from '../config/supabase';
 
 const router = Router();
 
+// Debug endpoint to check quiz attempts for a specific student
+router.get('/debug/:student_id', async (req: Request, res: Response) => {
+  try {
+    const { student_id } = req.params;
+
+    // Get all quiz attempts for this student
+    const { data: attempts, error: attemptsError } = await supabase
+      .from('student_quiz_attempts')
+      .select('*')
+      .eq('student_id', student_id)
+      .order('created_at', { ascending: false });
+
+    if (attemptsError) {
+      return res.status(500).json({ error: attemptsError });
+    }
+
+    // Get active semesters
+    const { data: semesters, error: semestersError } = await supabase
+      .from('semesters')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (semestersError) {
+      return res.status(500).json({ error: semestersError });
+    }
+
+    // Get points breakdown from database function
+    const { data: pointsData, error: pointsError } = await supabase
+      .rpc('get_student_points_breakdown', { p_student_id: student_id });
+
+    res.json({
+      student_id,
+      quiz_attempts: attempts,
+      total_attempts: attempts?.length || 0,
+      semesters,
+      points_breakdown: pointsData,
+      points_error: pointsError
+    });
+
+  } catch (error) {
+    console.error('Debug error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 interface QuizQuestion {
   id: number;
   question_text: string;

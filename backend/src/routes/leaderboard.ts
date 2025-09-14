@@ -66,17 +66,26 @@ async function getLeaderboardData(semesterId?: string): Promise<LeaderboardEntry
   // Get points breakdown for each student using the database function
   const leaderboardEntries: Omit<LeaderboardEntry, 'rank'>[] = await Promise.all(
     studentsData.map(async (student) => {
-      // Get points breakdown from database function with optional semester filter
-      const rpcParams: { p_student_id: string; p_semester_id?: string } = { 
-        p_student_id: student.student_id 
-      };
-      
-      if (targetSemesterId) {
-        rpcParams.p_semester_id = targetSemesterId;
+      // Get points breakdown using semester-specific function
+      let pointsData, pointsError;
+
+      if (semesterId === 'summer_2025') {
+        const { data, error } = await supabase
+          .rpc('get_summer_2025_student_points_breakdown', { p_student_id: student.student_id });
+        pointsData = data;
+        pointsError = error;
+      } else if (semesterId === 'fall_2025') {
+        const { data, error } = await supabase
+          .rpc('get_fall_2025_student_points_breakdown', { p_student_id: student.student_id });
+        pointsData = data;
+        pointsError = error;
+      } else {
+        // Default to original function for backward compatibility
+        const { data, error } = await supabase
+          .rpc('get_student_points_breakdown', { p_student_id: student.student_id });
+        pointsData = data;
+        pointsError = error;
       }
-      
-      const { data: pointsData, error: pointsError } = await supabase
-        .rpc('get_student_points_breakdown', rpcParams);
 
       if (pointsError || !pointsData || pointsData.length === 0) {
         console.error('Error getting points breakdown for student:', student.student_id, pointsError);
@@ -181,7 +190,7 @@ async function getLeaderboardData(semesterId?: string): Promise<LeaderboardEntry
  * GET /api/leaderboard
  * Get ranked leaderboard of all students based on their current marks
  * Headers:
- * - x-semester-code: Code of specific semester e.g. 'fall_2025' (optional)
+ * - x-semester: Code of specific semester e.g. 'fall_2025' (optional)
  * Query parameters:
  * - limit: Number of entries to return (default 50, max 100)
  * - offset: Number of entries to skip (default 0)
@@ -193,7 +202,9 @@ router.get('/leaderboard', async (req: Request, res: Response) => {
     const offset = Math.max(parseInt(req.query.offset as string) || 0, 0);
     
     // Get semester from header
-    const semesterCode = req.headers['x-semester-code'] as string;
+    const semesterCode = req.headers['x-semester'] as string;
+    
+    console.log(`🏆 [${new Date().toLocaleTimeString()}] GET /api/leaderboard - semester: ${semesterCode || 'none'}, user-agent: ${req.headers['user-agent']?.substring(0, 30) || 'unknown'}`);
 
     // Get leaderboard data using shared function
     const rankedEntries = await getLeaderboardData(semesterCode);
@@ -229,7 +240,7 @@ router.get('/leaderboard', async (req: Request, res: Response) => {
  * GET /api/leaderboard/student/:student_id
  * Get specific student's ranking and nearby competitors
  * Headers:
- * - x-semester-code: Code of specific semester e.g. 'fall_2025' (optional)
+ * - x-semester: Code of specific semester e.g. 'fall_2025' (optional)
  * Query parameters:
  * - context: Number of students above/below to include (default 5, max 20)
  */
@@ -239,7 +250,7 @@ router.get('/leaderboard/student/:student_id', async (req: Request, res: Respons
     const context = Math.min(parseInt(req.query.context as string) || 5, 20); // Students above/below
     
     // Get semester from header
-    const semesterCode = req.headers['x-semester-code'] as string;
+    const semesterCode = req.headers['x-semester'] as string;
 
     if (!student_id) {
       return res.status(400).json({
@@ -294,14 +305,14 @@ router.get('/leaderboard/student/:student_id', async (req: Request, res: Respons
  * POST /api/leaderboard/calculate-bonus/:projectType
  * Manually calculate and award bonus points for most voted project
  * Headers:
- * - x-semester-code: Code of specific semester e.g. 'fall_2025' (optional)
+ * - x-semester: Code of specific semester e.g. 'fall_2025' (optional)
  */
 router.post('/calculate-bonus/:projectType', async (req: Request, res: Response) => {
   try {
     const { projectType } = req.params;
     
     // Get semester from header
-    const semesterCode = req.headers['x-semester-code'] as string;
+    const semesterCode = req.headers['x-semester'] as string;
 
     if (!['midterm', 'final'].includes(projectType)) {
       return res.status(400).json({

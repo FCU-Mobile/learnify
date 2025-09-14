@@ -1,49 +1,52 @@
 //
-//  LeaderboardView.swift
+//  FallLeaderboardView.swift
 //  Learnify
 //
-//  Created by Claude on 2025/7/11.
+//  Created by Claude on 2025/1/14.
 //
 
 import SwiftUI
 
-struct LeaderboardView: View {
-    @Environment(SemesterService.self) private var semesterService
-    @State private var leaderboard: [LeaderboardEntry] = []
+struct FallLeaderboardView: View {
+    @State private var leaderboard: [FallLeaderboardEntry] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var showingAlert = false
+    @State private var totalStudents = 0
     
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
+                // Fall Header Section
+                FallLeaderboardHeader()
+                
                 if isLoading {
                     VStack(spacing: 20) {
                         ProgressView()
                             .scaleEffect(1.5)
-                        Text("Loading leaderboard...")
-                            .foregroundColor(.secondary)
+                        Text("Loading Fall leaderboard...")
+                            .foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if leaderboard.isEmpty {
                     VStack(spacing: 20) {
                         Image(systemName: "trophy.fill")
                             .font(.system(size: 60))
-                            .foregroundColor(.gray)
+                            .foregroundStyle(.gray)
                         
                         Text("No Students Yet")
                             .font(.title2)
                             .fontWeight(.semibold)
-                            .foregroundColor(.primary)
+                            .foregroundStyle(.primary)
                         
-                        Text("No students have joined the leaderboard yet.")
+                        Text("No students have joined the Fall leaderboard yet.")
                             .font(.body)
-                            .foregroundColor(.secondary)
+                            .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                         
                         Button("Refresh") {
                             Task {
-                                await loadLeaderboard()
+                                await loadFallLeaderboard()
                             }
                         }
                         .buttonStyle(.borderedProminent)
@@ -55,51 +58,55 @@ struct LeaderboardView: View {
                         // Top 3 Podium Section
                         if leaderboard.count >= 3 {
                             Section {
-                                PodiumView(leaderboard: Array(leaderboard.prefix(3)))
+                                FallPodiumView(leaderboard: Array(leaderboard.prefix(3)))
                             }
                             .listRowInsets(EdgeInsets())
                             .listRowBackground(Color.clear)
                         }
                         
-                        // Full Rankings List
-                        Section(header: Text("All Rankings").textCase(.uppercase)) {
+                        // Fall Rankings List
+                        Section {
                             ForEach(leaderboard, id: \.student_id) { entry in
-                                LeaderboardRowView(entry: entry)
+                                FallLeaderboardRowView(entry: entry)
+                            }
+                        } header: {
+                            HStack {
+                                Text("Fall Semester Rankings")
+                                    .textCase(.uppercase)
+                                Spacer()
+                                Text("\(totalStudents) students")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .textCase(.none)
                             }
                         }
                     }
                     .listStyle(PlainListStyle())
                     .refreshable {
-                        await loadLeaderboard()
+                        await loadFallLeaderboard()
                     }
                 }
             }
-            .navigationTitle("Leaderboard")
+            .navigationTitle("🍂 Fall Leaderboard")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Refresh") {
                         Task {
-                            await loadLeaderboard()
+                            await loadFallLeaderboard()
                         }
                     }
                     .disabled(isLoading)
                 }
             }
             .task {
-                await loadLeaderboard()
-            }
-            .onChange(of: semesterService.selectedSemester) { oldValue, newValue in
-                print("🏆 [iOS] Leaderboard semester changed: \(oldValue ?? "nil") → \(newValue ?? "nil")")
-                Task {
-                    await loadLeaderboard()
-                }
+                await loadFallLeaderboard()
             }
             .alert("Error", isPresented: $showingAlert) {
                 Button("OK") { }
                 Button("Retry") {
                     Task {
-                        await loadLeaderboard()
+                        await loadFallLeaderboard()
                     }
                 }
             } message: {
@@ -109,19 +116,17 @@ struct LeaderboardView: View {
     }
     
     @MainActor
-    private func loadLeaderboard() async {
-        print("🏆 [iOS] Loading leaderboard - semester: \(semesterService.selectedSemester ?? "none")")
+    private func loadFallLeaderboard() async {
+        print("🍂 [iOS] Loading Fall leaderboard")
         isLoading = true
         errorMessage = nil
         
         do {
-            // Use semester-specific API for better control over semester filtering
-            leaderboard = try await APIService.shared.getLeaderboardForSemester(
-                semesterCode: semesterService.selectedSemester
-            )
-            print("🏆 [iOS] Loaded \(leaderboard.count) leaderboard entries for semester: \(semesterService.selectedSemester ?? "none")")
+            leaderboard = try await APIService.shared.getFallLeaderboard()
+            totalStudents = leaderboard.count
+            print("🍂 [iOS] Loaded \(leaderboard.count) Fall leaderboard entries")
         } catch {
-            print("🏆 [iOS] Leaderboard error: \(error)")
+            print("🍂 [iOS] Fall leaderboard error: \(error)")
             errorMessage = error.localizedDescription
             showingAlert = true
         }
@@ -130,21 +135,62 @@ struct LeaderboardView: View {
     }
 }
 
-struct PodiumView: View {
-    let leaderboard: [LeaderboardEntry]
+struct FallLeaderboardHeader: View {
+    var body: some View {
+        VStack(spacing: 0) {
+            LinearGradient(
+                colors: [.purple, .pink],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .frame(height: 140)
+            .overlay {
+                VStack(spacing: 8) {
+                    HStack {
+                        Text("🍂 Fall Semester Leaderboard")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundStyle(.white)
+                        Spacer()
+                    }
+                    
+                    HStack {
+                        Text("Rankings based on quiz performance and project ratings")
+                            .font(.subheadline)
+                            .foregroundStyle(.white.opacity(0.9))
+                        Spacer()
+                    }
+                    
+                    HStack {
+                        Text("📊 Quiz Points (10%) + Project Ratings (30% each)")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.8))
+                        Spacer()
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.top, 8)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 0))
+        }
+    }
+}
+
+struct FallPodiumView: View {
+    let leaderboard: [FallLeaderboardEntry]
     
     var body: some View {
         VStack(spacing: 20) {
             Text("🏆 Top Performers")
                 .font(.title2)
                 .fontWeight(.bold)
-                .foregroundColor(.primary)
+                .foregroundStyle(.primary)
                 .padding(.top)
             
             HStack(alignment: .bottom, spacing: 16) {
                 // 2nd Place
                 if leaderboard.count >= 2 {
-                    PodiumPositionView(
+                    FallPodiumPositionView(
                         entry: leaderboard[1],
                         position: 2,
                         height: 80,
@@ -154,7 +200,7 @@ struct PodiumView: View {
                 
                 // 1st Place
                 if leaderboard.count >= 1 {
-                    PodiumPositionView(
+                    FallPodiumPositionView(
                         entry: leaderboard[0],
                         position: 1,
                         height: 100,
@@ -164,7 +210,7 @@ struct PodiumView: View {
                 
                 // 3rd Place
                 if leaderboard.count >= 3 {
-                    PodiumPositionView(
+                    FallPodiumPositionView(
                         entry: leaderboard[2],
                         position: 3,
                         height: 60,
@@ -178,7 +224,7 @@ struct PodiumView: View {
         .frame(maxWidth: .infinity)
         .background(
             LinearGradient(
-                colors: [.blue.opacity(0.1), .purple.opacity(0.1)],
+                colors: [.purple.opacity(0.1), .pink.opacity(0.1)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -188,8 +234,8 @@ struct PodiumView: View {
     }
 }
 
-struct PodiumPositionView: View {
-    let entry: LeaderboardEntry
+struct FallPodiumPositionView: View {
+    let entry: FallLeaderboardEntry
     let position: Int
     let height: CGFloat
     let color: Color
@@ -200,20 +246,20 @@ struct PodiumPositionView: View {
             ZStack {
                 Circle()
                     .fill(LinearGradient(
-                        gradient: Gradient(colors: [.blue, .purple]),
+                        gradient: Gradient(colors: [.purple, .pink]),
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     ))
                     .frame(width: 50, height: 50)
                 
-                Text(getInitials(from: entry.full_name))
+                Text(getInitials(from: entry.student_name))
                     .font(.headline)
                     .fontWeight(.semibold)
-                    .foregroundColor(.white)
+                    .foregroundStyle(.white)
             }
             
             // Name
-            Text(entry.full_name)
+            Text(entry.student_name)
                 .font(.caption)
                 .fontWeight(.medium)
                 .multilineTextAlignment(.center)
@@ -221,10 +267,10 @@ struct PodiumPositionView: View {
                 .frame(maxWidth: 80)
             
             // Score
-            Text("\(entry.total_marks)")
+            Text(String(format: "%.1f", entry.total_score))
                 .font(.caption)
                 .fontWeight(.bold)
-                .foregroundColor(.blue)
+                .foregroundStyle(.purple)
             
             // Podium
             Rectangle()
@@ -234,7 +280,7 @@ struct PodiumPositionView: View {
                     Text("\(position)")
                         .font(.title2)
                         .fontWeight(.bold)
-                        .foregroundColor(.white)
+                        .foregroundStyle(.white)
                 )
                 .cornerRadius(8)
         }
@@ -247,8 +293,8 @@ struct PodiumPositionView: View {
     }
 }
 
-struct LeaderboardRowView: View {
-    let entry: LeaderboardEntry
+struct FallLeaderboardRowView: View {
+    let entry: FallLeaderboardEntry
     
     var body: some View {
         HStack(spacing: 12) {
@@ -261,61 +307,65 @@ struct LeaderboardRowView: View {
                 Text("\(entry.rank)")
                     .font(.subheadline)
                     .fontWeight(.bold)
-                    .foregroundColor(rankColor)
+                    .foregroundStyle(rankColor)
             }
             
             // Avatar with initials
             ZStack {
                 Circle()
                     .fill(LinearGradient(
-                        gradient: Gradient(colors: [.blue, .purple]),
+                        gradient: Gradient(colors: [.purple, .pink]),
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     ))
                     .frame(width: 40, height: 40)
                 
-                Text(getInitials(from: entry.full_name))
+                Text(getInitials(from: entry.student_name))
                     .font(.caption)
                     .fontWeight(.semibold)
-                    .foregroundColor(.white)
+                    .foregroundStyle(.white)
             }
             
             // Student Info
             VStack(alignment: .leading, spacing: 2) {
-                Text(entry.full_name)
+                Text(entry.student_name)
                     .font(.subheadline)
                     .fontWeight(.medium)
-                    .foregroundColor(.primary)
+                    .foregroundStyle(.primary)
                 
-                HStack(spacing: 4) {
-                    Text(entry.student_id)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    
-                    if entry.total_check_ins > 0 {
-                        Text("• \(entry.total_check_ins) check-ins")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
+                Text(entry.student_id)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             
             Spacer()
             
-            // Score and Badge
+            // Score Breakdown
             VStack(alignment: .trailing, spacing: 4) {
-                Text("\(entry.total_marks)")
+                Text(String(format: "%.1f", entry.total_score))
                     .font(.headline)
                     .fontWeight(.bold)
-                    .foregroundColor(.blue)
+                    .foregroundStyle(.purple)
                 
                 if entry.rank <= 3 {
                     Text(rankEmoji)
                         .font(.title2)
                 } else {
-                    Text("pts")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    HStack(spacing: 4) {
+                        Text("Q:")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        Text(String(format: "%.1f", entry.quiz_points))
+                            .font(.caption2)
+                            .foregroundStyle(.blue)
+                        
+                        Text("P:")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        Text(String(format: "%.1f", (entry.project1_rating + entry.project2_rating + entry.project3_rating)))
+                            .font(.caption2)
+                            .foregroundStyle(.green)
+                    }
                 }
             }
         }
@@ -327,7 +377,7 @@ struct LeaderboardRowView: View {
         case 1: return .yellow
         case 2: return .gray
         case 3: return .orange
-        default: return .blue
+        default: return .purple
         }
     }
     
@@ -348,5 +398,5 @@ struct LeaderboardRowView: View {
 }
 
 #Preview {
-    LeaderboardView()
+    FallLeaderboardView()
 }

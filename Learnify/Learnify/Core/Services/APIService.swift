@@ -16,6 +16,15 @@ final class APIService: NSObject, URLSessionTaskDelegate {
     #else
     private let baseURL = "https://learnify-api.zeabur.app"
     #endif
+    
+    // MARK: - Helper Methods
+    
+    private func addSemesterHeaders(to request: inout URLRequest, useXSemester: Bool = false) {
+        if let selectedSemester = SemesterService.current?.selectedSemester {
+            let headerName = useXSemester ? "x-semester" : "x-semester-code"
+            request.setValue(selectedSemester, forHTTPHeaderField: headerName)
+        }
+    }
 
     // MARK: - Check-In
     func checkIn(studentId: String, fullName: String) async throws -> CheckInResponse {
@@ -25,6 +34,10 @@ final class APIService: NSObject, URLSessionTaskDelegate {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.timeoutInterval = 30
+        
+        // Add semester headers
+        addSemesterHeaders(to: &request)
+        
         request.httpBody = try JSONEncoder().encode(CheckInRequest(student_id: studentId, full_name: fullName))
         
         // Debug: Print platform and request info
@@ -173,6 +186,9 @@ final class APIService: NSObject, URLSessionTaskDelegate {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        
+        // Add semester headers for check-ins (use x-semester-code)
+        addSemesterHeaders(to: &request)
         
         print("📤 Fetching check-ins for student: \(studentId)")
         
@@ -362,7 +378,10 @@ final class APIService: NSObject, URLSessionTaskDelegate {
         request.httpMethod = "GET"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         
-        print("📤 Fetching leaderboard")
+        // Add semester headers
+        addSemesterHeaders(to: &request)
+        
+        print("📤 Fetching leaderboard - semester: \(SemesterService.current?.selectedSemester ?? "none")")
         
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 30.0
@@ -406,6 +425,137 @@ final class APIService: NSObject, URLSessionTaskDelegate {
             }
         }
         throw lastError ?? APIError.networkError("Failed to fetch leaderboard after multiple retries.")
+    }
+    
+    // MARK: - Semester-specific Leaderboard
+    func getLeaderboardForSemester(semesterCode: String? = nil, limit: Int = 50, offset: Int = 0) async throws -> [LeaderboardEntry] {
+        var urlComponents = URLComponents(string: "\(baseURL)/api/leaderboard")!
+        urlComponents.queryItems = [
+            URLQueryItem(name: "limit", value: String(limit)),
+            URLQueryItem(name: "offset", value: String(offset))
+        ]
+        
+        guard let url = urlComponents.url else {
+            throw APIError.invalidURL
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        
+        // Add semester headers (use x-semester-code)
+        if let semesterCode = semesterCode {
+            request.setValue(semesterCode, forHTTPHeaderField: "x-semester-code")
+        } else {
+            addSemesterHeaders(to: &request)
+        }
+        
+        print("📤 Fetching leaderboard for semester: \(semesterCode ?? SemesterService.current?.selectedSemester ?? "none")")
+        
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 30.0
+        config.timeoutIntervalForResource = 60.0
+        config.requestCachePolicy = .reloadIgnoringLocalCacheData
+        config.httpMaximumConnectionsPerHost = 1
+        let session = URLSession(configuration: config)
+
+        let maxRetries = 3
+        var lastError: Error?
+
+        for attempt in 1...maxRetries {
+            do {
+                print("🔄 Semester leaderboard request attempt \(attempt)/\(maxRetries)")
+                let (data, response) = try await session.data(for: request)
+                
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    print("❌ Invalid response type for semester leaderboard")
+                    throw APIError.invalidResponse
+                }
+                
+                print("✅ Semester leaderboard HTTP Status: \(httpResponse.statusCode)")
+                
+                guard (200...299).contains(httpResponse.statusCode) else {
+                    print("❌ Semester leaderboard server error: \(httpResponse.statusCode)")
+                    throw APIError.serverError(httpResponse.statusCode)
+                }
+                
+                let leaderboardResponse = try JSONDecoder().decode(LeaderboardResponse.self, from: data)
+                print("✅ Successfully fetched \(leaderboardResponse.data.leaderboard.count) semester leaderboard entries")
+                return leaderboardResponse.data.leaderboard
+                
+            } catch let error as URLError where error.code == .networkConnectionLost && attempt < maxRetries {
+                print("⚠️ Network connection lost fetching semester leaderboard (Attempt \(attempt)/\(maxRetries)). Error: \(error)")
+                lastError = error
+                try await Task.sleep(nanoseconds: UInt64(attempt) * 1_000_000_000)
+                continue
+            } catch {
+                print("❌ Semester leaderboard request failed with error: \(error)")
+                throw error
+            }
+        }
+        throw lastError ?? APIError.networkError("Failed to fetch semester leaderboard after multiple retries.")
+    }
+    
+    // MARK: - Fall Leaderboard (Independent)
+    func getFallLeaderboard(limit: Int = 50, offset: Int = 0) async throws -> [FallLeaderboardEntry] {
+        var urlComponents = URLComponents(string: "\(baseURL)/api/fall-leaderboard")!
+        urlComponents.queryItems = [
+            URLQueryItem(name: "limit", value: String(limit)),
+            URLQueryItem(name: "offset", value: String(offset))
+        ]
+        
+        guard let url = urlComponents.url else {
+            throw APIError.invalidURL
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        
+        print("📤 Fetching Fall leaderboard")
+        
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 30.0
+        config.timeoutIntervalForResource = 60.0
+        config.requestCachePolicy = .reloadIgnoringLocalCacheData
+        config.httpMaximumConnectionsPerHost = 1
+        let session = URLSession(configuration: config)
+
+        let maxRetries = 3
+        var lastError: Error?
+
+        for attempt in 1...maxRetries {
+            do {
+                print("🔄 Fall leaderboard request attempt \(attempt)/\(maxRetries)")
+                let (data, response) = try await session.data(for: request)
+                
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    print("❌ Invalid response type for Fall leaderboard")
+                    throw APIError.invalidResponse
+                }
+                
+                print("✅ Fall leaderboard HTTP Status: \(httpResponse.statusCode)")
+                
+                guard (200...299).contains(httpResponse.statusCode) else {
+                    print("❌ Fall leaderboard server error: \(httpResponse.statusCode)")
+                    throw APIError.serverError(httpResponse.statusCode)
+                }
+                
+                let fallLeaderboardResponse = try JSONDecoder().decode(FallLeaderboardResponse.self, from: data)
+                print("✅ Successfully fetched \(fallLeaderboardResponse.data.leaderboard.count) Fall leaderboard entries")
+                return fallLeaderboardResponse.data.leaderboard
+                
+            } catch let error as URLError where error.code == .networkConnectionLost && attempt < maxRetries {
+                print("⚠️ Network connection lost fetching Fall leaderboard (Attempt \(attempt)/\(maxRetries)). Error: \(error)")
+                lastError = error
+                try await Task.sleep(nanoseconds: UInt64(attempt) * 1_000_000_000)
+                continue
+            } catch {
+                print("❌ Fall leaderboard request failed with error: \(error)")
+                throw error
+            }
+        }
+        throw lastError ?? APIError.networkError("Failed to fetch Fall leaderboard after multiple retries.")
     }
     
     // MARK: - Get Student Reviews
@@ -485,6 +635,9 @@ final class APIService: NSObject, URLSessionTaskDelegate {
         request.httpMethod = "GET"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         
+        // Add semester headers for lessons (use x-semester)
+        addSemesterHeaders(to: &request, useXSemester: true)
+        
         print("📤 Fetching current lesson")
         
         let config = URLSessionConfiguration.default
@@ -554,7 +707,10 @@ final class APIService: NSObject, URLSessionTaskDelegate {
         request.httpMethod = "GET"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         
-        print("📤 Fetching all lessons")
+        // Add semester headers for lessons (use x-semester)
+        addSemesterHeaders(to: &request, useXSemester: true)
+        
+        print("📤 Fetching all lessons - semester: \(SemesterService.current?.selectedSemester ?? "none")")
         
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 30.0
@@ -671,6 +827,9 @@ final class APIService: NSObject, URLSessionTaskDelegate {
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.timeoutInterval = 60 // Longer timeout for file uploads
+        
+        // Add semester headers for submissions (use x-semester-code)
+        addSemesterHeaders(to: &request)
         
         var body = Data()
         
@@ -1269,6 +1428,112 @@ final class APIService: NSObject, URLSessionTaskDelegate {
         }
         throw lastError ?? APIError.networkError("Failed to fetch all questions with attempts after multiple retries.")
     }
+    
+    // MARK: - Semester Management
+    
+    func getSemesters() async throws -> SemestersResponse {
+        let url = URL(string: "\(baseURL)/api/semesters")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        
+        print("📤 Fetching all semesters")
+        
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 30.0
+        config.timeoutIntervalForResource = 60.0
+        config.requestCachePolicy = .reloadIgnoringLocalCacheData
+        config.httpMaximumConnectionsPerHost = 1
+        let session = URLSession(configuration: config)
+
+        let maxRetries = 3
+        var lastError: Error?
+
+        for attempt in 1...maxRetries {
+            do {
+                print("🔄 Semesters request attempt \(attempt)/\(maxRetries)")
+                let (data, response) = try await session.data(for: request)
+                
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    print("❌ Invalid response type for semesters")
+                    throw APIError.invalidResponse
+                }
+                
+                print("✅ Semesters HTTP Status: \(httpResponse.statusCode)")
+                
+                guard (200...299).contains(httpResponse.statusCode) else {
+                    print("❌ Semesters server error: \(httpResponse.statusCode)")
+                    throw APIError.serverError(httpResponse.statusCode)
+                }
+                
+                let semestersResponse = try JSONDecoder().decode(SemestersResponse.self, from: data)
+                print("✅ Successfully fetched \(semestersResponse.data.semesters.count) semesters")
+                return semestersResponse
+                
+            } catch let error as URLError where error.code == .networkConnectionLost && attempt < maxRetries {
+                print("⚠️ Network connection lost fetching semesters (Attempt \(attempt)/\(maxRetries)). Error: \(error)")
+                lastError = error
+                try await Task.sleep(nanoseconds: UInt64(attempt) * 1_000_000_000)
+                continue
+            } catch {
+                print("❌ Semesters request failed with error: \(error)")
+                throw error
+            }
+        }
+        throw lastError ?? APIError.networkError("Failed to fetch semesters after multiple retries.")
+    }
+    
+    func getCurrentSemester() async throws -> CurrentSemesterResponse {
+        let url = URL(string: "\(baseURL)/api/semesters/current")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        
+        print("📤 Fetching current semester")
+        
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 30.0
+        config.timeoutIntervalForResource = 60.0
+        config.requestCachePolicy = .reloadIgnoringLocalCacheData
+        config.httpMaximumConnectionsPerHost = 1
+        let session = URLSession(configuration: config)
+
+        let maxRetries = 3
+        var lastError: Error?
+
+        for attempt in 1...maxRetries {
+            do {
+                print("🔄 Current semester request attempt \(attempt)/\(maxRetries)")
+                let (data, response) = try await session.data(for: request)
+                
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    print("❌ Invalid response type for current semester")
+                    throw APIError.invalidResponse
+                }
+                
+                print("✅ Current semester HTTP Status: \(httpResponse.statusCode)")
+                
+                guard (200...299).contains(httpResponse.statusCode) else {
+                    print("❌ Current semester server error: \(httpResponse.statusCode)")
+                    throw APIError.serverError(httpResponse.statusCode)
+                }
+                
+                let currentSemesterResponse = try JSONDecoder().decode(CurrentSemesterResponse.self, from: data)
+                print("✅ Successfully fetched current semester: \(currentSemesterResponse.data.semester.name)")
+                return currentSemesterResponse
+                
+            } catch let error as URLError where error.code == .networkConnectionLost && attempt < maxRetries {
+                print("⚠️ Network connection lost fetching current semester (Attempt \(attempt)/\(maxRetries)). Error: \(error)")
+                lastError = error
+                try await Task.sleep(nanoseconds: UInt64(attempt) * 1_000_000_000)
+                continue
+            } catch {
+                print("❌ Current semester request failed with error: \(error)")
+                throw error
+            }
+        }
+        throw lastError ?? APIError.networkError("Failed to fetch current semester after multiple retries.")
+    }
 }
 
 // MARK: - Data Models
@@ -1795,4 +2060,37 @@ struct AllQuestionsData: Codable {
     let student: StudentInfo
     let questions: [QuestionWithAttempts]
     let summary: QuestionsSummary
+}
+
+// MARK: - Fall Leaderboard Data Models
+
+struct FallLeaderboardEntry: Codable, Identifiable {
+    let student_id: String
+    let student_name: String
+    let quiz_points: Double
+    let project1_rating: Double
+    let project2_rating: Double
+    let project3_rating: Double
+    let total_score: Double
+    let rank: Int
+    
+    var id: String { student_id }
+}
+
+struct FallLeaderboardResponse: Codable {
+    let success: Bool
+    let data: FallLeaderboardData
+}
+
+struct FallLeaderboardData: Codable {
+    let leaderboard: [FallLeaderboardEntry]
+    let total_students: Int
+    let showing: FallLeaderboardPagination
+}
+
+struct FallLeaderboardPagination: Codable {
+    let limit: Int
+    let offset: Int
+    let total_pages: Int
+    let current_page: Int
 }

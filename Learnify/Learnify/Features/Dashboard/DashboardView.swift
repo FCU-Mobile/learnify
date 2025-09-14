@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct DashboardView: View {
+    @Environment(SemesterService.self) private var semesterService
+    
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -27,20 +29,22 @@ struct DashboardView: View {
                     
                     // Navigation Cards
                     VStack(spacing: 16) {
-                        // Check In Card
-                        NavigationLink(destination: CheckInView()) {
-                            DashboardCard(
-                                icon: "checkmark.circle",
-                                title: "Check In",
-                                subtitle: "Submit your daily check-in to earn points",
-                                gradient: LinearGradient(
-                                    colors: [.green, .cyan],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
+                        // Check In Card - Hidden for Fall semester
+                        if !semesterService.shouldHideCheckIn {
+                            NavigationLink(destination: CheckInView()) {
+                                DashboardCard(
+                                    icon: "checkmark.circle",
+                                    title: "Check In",
+                                    subtitle: "Submit your daily check-in to earn points",
+                                    gradient: LinearGradient(
+                                        colors: [.green, .cyan],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
                                 )
-                            )
+                            }
+                            .buttonStyle(PlainButtonStyle())
                         }
-                        .buttonStyle(PlainButtonStyle())
                         
                         // Students Card
                         NavigationLink(destination: StudentsListView()) {
@@ -57,35 +61,55 @@ struct DashboardView: View {
                         }
                         .buttonStyle(PlainButtonStyle())
                         
-                        // All Reviews Card
-                        NavigationLink(destination: ReviewsListView()) {
-                            DashboardCard(
-                                icon: "list.bullet.rectangle",
-                                title: "All Reviews",
-                                subtitle: "Browse all submitted reviews",
-                                gradient: LinearGradient(
-                                    colors: [.green, .mint],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
+                        // All Reviews Card - Hidden for Fall semester
+                        if !semesterService.shouldHideCheckIn {
+                            NavigationLink(destination: ReviewsListView()) {
+                                DashboardCard(
+                                    icon: "list.bullet.rectangle",
+                                    title: "All Reviews",
+                                    subtitle: "Browse all submitted reviews",
+                                    gradient: LinearGradient(
+                                        colors: [.green, .mint],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
                                 )
-                            )
+                            }
+                            .buttonStyle(PlainButtonStyle())
                         }
-                        .buttonStyle(PlainButtonStyle())
                         
-                        // Leaderboard Card
-                        NavigationLink(destination: LeaderboardView()) {
-                            DashboardCard(
-                                icon: "trophy.fill",
-                                title: "Leaderboard",
-                                subtitle: "View rankings and achievements",
-                                gradient: LinearGradient(
-                                    colors: [.orange, .red],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
+                        // Leaderboard Card - Different for Fall semester
+                        if semesterService.shouldHideCheckIn {
+                            // Fall Semester - Use Fall Leaderboard
+                            NavigationLink(destination: FallLeaderboardView()) {
+                                DashboardCard(
+                                    icon: "trophy.fill",
+                                    title: "🍂 Fall Leaderboard",
+                                    subtitle: "View project ratings and quiz scores",
+                                    gradient: LinearGradient(
+                                        colors: [.purple, .pink],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
                                 )
-                            )
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                        } else {
+                            // Regular Semester - Use Regular Leaderboard
+                            NavigationLink(destination: LeaderboardView()) {
+                                DashboardCard(
+                                    icon: "trophy.fill",
+                                    title: "Leaderboard",
+                                    subtitle: "View rankings and achievements",
+                                    gradient: LinearGradient(
+                                        colors: [.orange, .red],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                            }
+                            .buttonStyle(PlainButtonStyle())
                         }
-                        .buttonStyle(PlainButtonStyle())
                     }
                     .padding(.horizontal)
                     
@@ -93,15 +117,7 @@ struct DashboardView: View {
                 }
             }
             .background(Color(.systemGroupedBackground))
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    NavigationLink(destination: SettingsView()) {
-                        Image(systemName: "gear")
-                            .font(.body)
-                            .fontWeight(.medium)
-                    }
-                }
-            }
+            .appToolbar()
         }
     }
 }

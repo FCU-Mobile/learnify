@@ -153,8 +153,3 @@ Core entities include:
 - **Instructor**: Can view analytics, create quizzes, award badges
 
 Refer to PRD.md for detailed feature specifications and user stories.
-
-## Supabase Development Memories
-
-- Prevent running `supabase reset`, try to run migration up instead
-- Find and remember the project ref to connect to local Supabase

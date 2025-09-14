@@ -11,6 +11,7 @@ struct LessonView: View {
     @State private var lessons: [LessonDetail] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @Environment(SemesterService.self) private var semesterService
     
     var body: some View {
         NavigationStack {
@@ -80,30 +81,33 @@ struct LessonView: View {
             .refreshable {
                 await loadLessonsAsync()
             }
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    NavigationLink(destination: SettingsView()) {
-                        Image(systemName: "gear")
-                            .font(.body)
-                            .fontWeight(.medium)
-                    }
-                }
+            .onChange(of: semesterService.selectedSemester) { oldValue, newValue in
+                print("📚 [iOS] Semester changed: \(oldValue ?? "nil") → \(newValue ?? "nil")")
+                loadLessons()
             }
+            .appToolbar()
         }
     }
     
     private func loadLessons() {
+        print("📚 [iOS] LessonView.loadLessons() called - semester: \(semesterService.selectedSemester ?? "nil")")
         isLoading = true
         errorMessage = nil
         
         Task {
             do {
+                print("📚 [iOS] About to call APIService.getAllLessons() - semester: \(semesterService.selectedSemester ?? "nil")")
                 let fetchedLessons = try await APIService.shared.getAllLessons()
+                print("📚 [iOS] APIService returned \(fetchedLessons.count) lessons")
+                if !fetchedLessons.isEmpty {
+                    print("📚 [iOS] First lesson: #\(fetchedLessons[0].lesson_number), Last lesson: #\(fetchedLessons[fetchedLessons.count-1].lesson_number)")
+                }
                 await MainActor.run {
                     self.lessons = fetchedLessons
                     self.isLoading = false
                 }
             } catch {
+                print("📚 [iOS] APIService error: \(error)")
                 await MainActor.run {
                     self.errorMessage = error.localizedDescription
                     self.isLoading = false
