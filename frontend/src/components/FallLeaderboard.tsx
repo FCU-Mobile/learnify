@@ -1,29 +1,5 @@
 import React, { useState, useEffect } from 'react';
-
-interface FallLeaderboardEntry {
-  student_id: string;
-  student_name: string;
-  quiz_points: number;
-  project1_rating: number;
-  project2_rating: number;
-  project3_rating: number;
-  total_score: number;
-  rank: number;
-}
-
-interface FallLeaderboardResponse {
-  success: boolean;
-  data: {
-    leaderboard: FallLeaderboardEntry[];
-    total_students: number;
-    showing: {
-      limit: number;
-      offset: number;
-      total_pages: number;
-      current_page: number;
-    };
-  };
-}
+import { getFallLeaderboard, type FallLeaderboardEntry } from '../lib/api';
 
 const FallLeaderboard: React.FC = () => {
   const [leaderboard, setLeaderboard] = useState<FallLeaderboardEntry[]>([]);
@@ -34,15 +10,10 @@ const FallLeaderboard: React.FC = () => {
   const fetchLeaderboard = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/fall-leaderboard`);
-      const data: FallLeaderboardResponse = await response.json();
-
-      if (data.success) {
-        setLeaderboard(data.data.leaderboard);
-        setTotalStudents(data.data.total_students);
-      } else {
-        setError('Failed to fetch leaderboard');
-      }
+      const data = await getFallLeaderboard();
+      setLeaderboard(data.leaderboard);
+      setTotalStudents(data.total_students);
+      setError(null);
     } catch (err) {
       setError('Error loading leaderboard');
       console.error('Leaderboard fetch error:', err);

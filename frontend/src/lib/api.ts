@@ -1879,19 +1879,58 @@ export const getProjectRatings = async (
 ): Promise<TeacherRating[]> => {
   const projectNumberMap = { midterm: 1, final: 2, project3: 3 };
   const projectNumber = projectNumberMap[projectType];
-  
+
   const response = await api.get<{success: boolean; data: {teacher_ratings: TeacherRating[], voting_results: any[], star_ratings: any[]}}>('/api/ratings/results', {
     params: {
       project_number: projectNumber,
       semester_id: semesterId
     }
   });
-  
+
   if (!response.data.success) {
     throw new Error('Failed to fetch project ratings');
   }
-  
+
   return response.data.data.teacher_ratings || [];
+};
+
+// Fall Leaderboard interfaces
+export interface FallLeaderboardEntry {
+  student_id: string;
+  student_name: string;
+  quiz_points: number;
+  project1_rating: number;
+  project2_rating: number;
+  project3_rating: number;
+  total_score: number;
+  rank: number;
+}
+
+export interface FallLeaderboardResponse {
+  success: boolean;
+  data: {
+    leaderboard: FallLeaderboardEntry[];
+    total_students: number;
+    showing: {
+      limit: number;
+      offset: number;
+      total_pages: number;
+      current_page: number;
+    };
+  };
+}
+
+// Fall Leaderboard API function
+export const getFallLeaderboard = async (limit?: number, offset?: number): Promise<FallLeaderboardResponse['data']> => {
+  const params: any = {};
+  if (limit) params.limit = limit;
+  if (offset) params.offset = offset;
+
+  const response = await api.get<FallLeaderboardResponse>('/api/fall-leaderboard', { params });
+  if (!response.data.success) {
+    throw new Error('Failed to fetch Fall leaderboard');
+  }
+  return response.data.data;
 };
 
 export default api;
