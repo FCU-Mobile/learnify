@@ -90,7 +90,7 @@ router.get('/students', requireAdmin, async (req, res) => {
                 .single();
 
               if (teamSubmission) {
-                const teamName = teamSubmission.project_teams?.team_name;
+                const teamName = (teamSubmission.project_teams as any)?.team_name;
                 if (projectNumber === 1) {
                   fallProjectStatus.has_project1 = true;
                   fallProjectStatus.project1_team_name = teamName;
