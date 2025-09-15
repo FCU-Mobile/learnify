@@ -34,7 +34,7 @@ const FallLeaderboard: React.FC = () => {
   const fetchLeaderboard = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`http://localhost:3000/api/fall-leaderboard`);
+      const response = await fetch(`/api/fall-leaderboard`);
       const data: FallLeaderboardResponse = await response.json();
 
       if (data.success) {
