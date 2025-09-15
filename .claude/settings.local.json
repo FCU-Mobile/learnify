@@ -12,7 +12,8 @@
       "mcp__filesystem__read_multiple_files",
       "mcp__filesystem__create_directory",
       "mcp__filesystem__move_file",
-      "Bash(jq:*)"
+      "Bash(jq:*)",
+      "Bash(npm run dev:*)"
     ],
     "deny": [
       "Bash(rm:*)"
