@@ -35,7 +35,7 @@ app.use(helmet());
 app.use(cors({
   origin: '*', // Allow all origins
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With', 'x-student-id', 'x-semester-code']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With', 'x-student-id', 'x-semester-code', 'x-semester']
 }));
 
 // Body parsing middleware
