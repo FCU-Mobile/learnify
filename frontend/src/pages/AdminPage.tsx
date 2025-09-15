@@ -507,12 +507,28 @@ const AdminPage: React.FC = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Role
                     </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Midterm Project
-                    </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Final Project
-                    </th>
+                    {isFallSemester ? (
+                      <>
+                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Project 1
+                        </th>
+                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Project 2
+                        </th>
+                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Project 3
+                        </th>
+                      </>
+                    ) : (
+                      <>
+                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Midterm Project
+                        </th>
+                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Final Project
+                        </th>
+                      </>
+                    )}
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Created
                     </th>
@@ -554,46 +570,116 @@ const AdminPage: React.FC = () => {
                           </span>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        {student.has_midterm_project ? (
-                          <div className="flex items-center justify-center">
-                            <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
-                              <i className="fas fa-check mr-1"></i>
-                              Submitted
-                              {student.midterm_project_count && student.midterm_project_count > 1 && (
-                                <span className="ml-1 px-1 bg-green-200 rounded-full text-xs">
-                                  {student.midterm_project_count}
+                      {isFallSemester ? (
+                        <>
+                          {/* Project 1 */}
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
+                            {student.has_project1 ? (
+                              <div className="flex items-center justify-center">
+                                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                                  <i className="fas fa-check mr-1"></i>
+                                  Submitted
+                                  {student.project1_team_name && (
+                                    <span className="ml-1 text-xs opacity-75">
+                                      ({student.project1_team_name})
+                                    </span>
+                                  )}
                                 </span>
-                              )}
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
-                            <i className="fas fa-minus mr-1"></i>
-                            Not Submitted
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        {student.has_final_project ? (
-                          <div className="flex items-center justify-center">
-                            <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
-                              <i className="fas fa-check mr-1"></i>
-                              Submitted
-                              {student.final_project_count && student.final_project_count > 1 && (
-                                <span className="ml-1 px-1 bg-blue-200 rounded-full text-xs">
-                                  {student.final_project_count}
+                              </div>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
+                                <i className="fas fa-minus mr-1"></i>
+                                Not Submitted
+                              </span>
+                            )}
+                          </td>
+                          {/* Project 2 */}
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
+                            {student.has_project2 ? (
+                              <div className="flex items-center justify-center">
+                                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                                  <i className="fas fa-check mr-1"></i>
+                                  Submitted
+                                  {student.project2_team_name && (
+                                    <span className="ml-1 text-xs opacity-75">
+                                      ({student.project2_team_name})
+                                    </span>
+                                  )}
                                 </span>
-                              )}
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
-                            <i className="fas fa-minus mr-1"></i>
-                            Not Submitted
-                          </span>
-                        )}
-                      </td>
+                              </div>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
+                                <i className="fas fa-minus mr-1"></i>
+                                Not Submitted
+                              </span>
+                            )}
+                          </td>
+                          {/* Project 3 */}
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
+                            {student.has_project3 ? (
+                              <div className="flex items-center justify-center">
+                                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800">
+                                  <i className="fas fa-check mr-1"></i>
+                                  Submitted
+                                  {student.project3_team_name && (
+                                    <span className="ml-1 text-xs opacity-75">
+                                      ({student.project3_team_name})
+                                    </span>
+                                  )}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
+                                <i className="fas fa-minus mr-1"></i>
+                                Not Submitted
+                              </span>
+                            )}
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
+                            {student.has_midterm_project ? (
+                              <div className="flex items-center justify-center">
+                                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                                  <i className="fas fa-check mr-1"></i>
+                                  Submitted
+                                  {student.midterm_project_count && student.midterm_project_count > 1 && (
+                                    <span className="ml-1 px-1 bg-green-200 rounded-full text-xs">
+                                      {student.midterm_project_count}
+                                    </span>
+                                  )}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
+                                <i className="fas fa-minus mr-1"></i>
+                                Not Submitted
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
+                            {student.has_final_project ? (
+                              <div className="flex items-center justify-center">
+                                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                                  <i className="fas fa-check mr-1"></i>
+                                  Submitted
+                                  {student.final_project_count && student.final_project_count > 1 && (
+                                    <span className="ml-1 px-1 bg-blue-200 rounded-full text-xs">
+                                      {student.final_project_count}
+                                    </span>
+                                  )}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
+                                <i className="fas fa-minus mr-1"></i>
+                                Not Submitted
+                              </span>
+                            )}
+                          </td>
+                        </>
+                      )}
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {new Date(student.created_at).toLocaleDateString()}
                       </td>

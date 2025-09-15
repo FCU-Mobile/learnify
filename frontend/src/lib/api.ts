@@ -22,6 +22,13 @@ export interface Student {
   has_final_project?: boolean;
   midterm_project_count?: number;
   final_project_count?: number;
+  // Fall semester team-based project status
+  has_project1?: boolean;
+  has_project2?: boolean;
+  has_project3?: boolean;
+  project1_team_name?: string;
+  project2_team_name?: string;
+  project3_team_name?: string;
 }
 
 export interface CheckInRequest {

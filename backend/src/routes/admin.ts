@@ -36,7 +36,7 @@ router.get('/students', requireAdmin, async (req, res) => {
       // Get project submission status for each student
       const studentsWithProjects = await Promise.all(
         studentsData.map(async (student) => {
-          // Check for midterm project
+          // Check for midterm project (Summer semester)
           const { data: midtermProjects } = await supabase
             .from('submissions')
             .select('id')
@@ -44,7 +44,7 @@ router.get('/students', requireAdmin, async (req, res) => {
             .eq('submission_type', 'project')
             .eq('project_type', 'midterm');
 
-          // Check for final project
+          // Check for final project (Summer semester)
           const { data: finalProjects } = await supabase
             .from('submissions')
             .select('id')
@@ -52,12 +52,67 @@ router.get('/students', requireAdmin, async (req, res) => {
             .eq('submission_type', 'project')
             .eq('project_type', 'final');
 
+          // Check for Fall semester team-based projects
+          // Get Fall 2025 semester ID
+          const { data: fallSemester } = await supabase
+            .from('semesters')
+            .select('id')
+            .eq('code', 'fall_2025')
+            .single();
+
+          let fallProjectStatus = {
+            has_project1: false,
+            has_project2: false,
+            has_project3: false,
+            project1_team_name: null,
+            project2_team_name: null,
+            project3_team_name: null
+          };
+
+          if (fallSemester) {
+            // Check each Fall project (1, 2, 3)
+            for (let projectNumber of [1, 2, 3]) {
+              // Find if student is in a team that has submitted this project
+              const { data: teamSubmission } = await supabase
+                .from('project_ratings')
+                .select(`
+                  teacher_rating,
+                  project_teams!inner (
+                    team_name,
+                    team_members!inner (
+                      student_id
+                    )
+                  )
+                `)
+                .eq('project_number', projectNumber)
+                .eq('semester_id', fallSemester.id)
+                .eq('project_teams.team_members.student_id', student.student_id)
+                .single();
+
+              if (teamSubmission) {
+                const teamName = teamSubmission.project_teams?.team_name;
+                if (projectNumber === 1) {
+                  fallProjectStatus.has_project1 = true;
+                  fallProjectStatus.project1_team_name = teamName;
+                } else if (projectNumber === 2) {
+                  fallProjectStatus.has_project2 = true;
+                  fallProjectStatus.project2_team_name = teamName;
+                } else if (projectNumber === 3) {
+                  fallProjectStatus.has_project3 = true;
+                  fallProjectStatus.project3_team_name = teamName;
+                }
+              }
+            }
+          }
+
           return {
             ...student,
             has_midterm_project: (midtermProjects?.length || 0) > 0,
             has_final_project: (finalProjects?.length || 0) > 0,
             midterm_project_count: midtermProjects?.length || 0,
-            final_project_count: finalProjects?.length || 0
+            final_project_count: finalProjects?.length || 0,
+            // Fall semester team project status
+            ...fallProjectStatus
           };
         })
       );
