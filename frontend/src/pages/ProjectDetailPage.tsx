@@ -59,8 +59,8 @@ const ProjectDetailPage: React.FC = () => {
       // Check if project belongs to current semester using dynamic semester data
       if (availableSemesters.length > 0) {
         const selectedSemesterData = availableSemesters.find(s => s.code === selectedSemester);
-        const projectSemesterData = project.semester_id ? 
-          availableSemesters.find(s => s.id === project.semester_id) : null;
+        const projectSemesterData = project.team?.semester_id ? 
+          availableSemesters.find(s => s.id === project.team?.semester_id) : null;
         
         // Semester viewing rules:
         // 1. If a semester is selected, only show projects from that semester
@@ -69,7 +69,7 @@ const ProjectDetailPage: React.FC = () => {
         
         if (selectedSemester && selectedSemesterData) {
           // A semester is selected - check if project belongs to it
-          if (project.semester_id && project.semester_id !== selectedSemesterData.id) {
+          if (project.team?.semester_id && project.team.semester_id !== selectedSemesterData.id) {
             const projectSemesterName = projectSemesterData?.name || 'Unknown Semester';
             setError(`This project belongs to ${projectSemesterName}. Switch to that semester to view it.`);
             return;
@@ -80,7 +80,7 @@ const ProjectDetailPage: React.FC = () => {
         console.log('ProjectDetailPage: Semester validation passed', {
           selectedSemester,
           selectedSemesterData: selectedSemesterData?.name,
-          projectSemesterId: project.semester_id,
+          projectSemesterId: project.team?.semester_id,
           projectSemesterData: projectSemesterData?.name
         });
       }
@@ -434,7 +434,7 @@ const ProjectDetailPage: React.FC = () => {
               <TeacherRating
                 submissionId={project.id}
                 projectType={project.project_type as 'midterm' | 'final' | 'project3'}
-                semesterId={project.semester_id || ''}
+                semesterId={project.team?.semester_id || ''}
                 teamId={project.team_id}
               />
             </div>
@@ -446,7 +446,7 @@ const ProjectDetailPage: React.FC = () => {
               <StudentRating
                 submissionId={project.id}
                 projectType={project.project_type as 'midterm' | 'final' | 'project3'}
-                semesterId={project.semester_id || ''}
+                semesterId={project.team?.semester_id || ''}
                 teamId={project.team_id}
                 isOwnProject={project.student_id === studentId || isTeamMember}
                 projectTitle={project.title}
@@ -460,7 +460,7 @@ const ProjectDetailPage: React.FC = () => {
               <StarRatingSummary
                 submissionId={project.id}
                 projectType={project.project_type as 'midterm' | 'final' | 'project3'}
-                semesterId={project.semester_id || ''}
+                semesterId={project.team?.semester_id || ''}
                 teamId={project.team_id}
                 projectTitle={project.title}
               />
