@@ -220,7 +220,7 @@ const StudentRating: React.FC<StudentRatingProps> = ({
           <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center space-x-2">
             <CheckCircle className="w-4 h-4 text-green-600" />
             <p className="text-sm text-green-700">
-              You rated this project <span className="font-semibold">{existingRating.stars} stars</span>
+              You rated this project <span className="font-semibold">{existingRating.star_rating} stars</span>
             </p>
           </div>
         )}

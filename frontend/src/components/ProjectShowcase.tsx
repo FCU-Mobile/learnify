@@ -31,7 +31,7 @@ const ProjectShowcase: React.FC<ProjectShowcaseProps> = ({ filterType = 'all' })
       setLoading(true);
       setError(null);
       
-      const promises = [
+      const promises: Promise<any>[] = [
         getPublicProjectsForSemester(selectedSemester || undefined),
         getProjectVotesForSemester('midterm', selectedSemester || undefined).catch(() => []),
         getProjectVotesForSemester('final', selectedSemester || undefined).catch(() => [])
@@ -65,9 +65,10 @@ const ProjectShowcase: React.FC<ProjectShowcaseProps> = ({ filterType = 'all' })
       const results = await Promise.all(promises);
       const [projectsData, midtermVotesData, finalVotesData, ...ratingResults] = results;
       
-      setProjects(projectsData);
-      setMidtermVotes(midtermVotesData);
-      setFinalVotes(finalVotesData);
+      // projectsData, midtermVotesData, finalVotesData are arrays from API functions
+      setProjects(projectsData as Submission[]);
+      setMidtermVotes(midtermVotesData as ProjectWithVotes[]);
+      setFinalVotes(finalVotesData as ProjectWithVotes[]);
 
       if (selectedSemester === 'fall_2025' && ratingResults.length >= 4) {
         const [project1Ratings, project2Ratings, project3Ratings, leaderboardData] = ratingResults;

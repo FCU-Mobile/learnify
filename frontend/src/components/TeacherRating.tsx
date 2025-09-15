@@ -184,7 +184,7 @@ const TeacherRating: React.FC<TeacherRatingProps> = ({
         </button>
       </div>
 
-      <style jsx>{`
+      <style>{`
         .slider::-webkit-slider-thumb {
           appearance: none;
           width: 20px;

@@ -20,7 +20,7 @@ const QuickStats: React.FC = () => {
 
     try {
       // Fetch check-ins
-      const checkIns = await getStudentCheckInsForSemester(studentId, selectedSemester);
+      const checkIns = await getStudentCheckInsForSemester(studentId, selectedSemester || undefined);
       setCheckInsCount(checkIns.length);
 
       // Check if user has checked in today

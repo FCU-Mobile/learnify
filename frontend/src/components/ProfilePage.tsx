@@ -43,7 +43,7 @@ const ProfilePage: React.FC = () => {
         
         // Fetch check-ins for this student (will be refetched when semester changes)
         setCheckInsLoading(true);
-        const studentCheckIns = await getStudentCheckInsForSemester(studentId, selectedSemester);
+        const studentCheckIns = await getStudentCheckInsForSemester(studentId, selectedSemester || undefined);
         setCheckIns(studentCheckIns);
         
         // Fetch reviews for this student
@@ -66,7 +66,7 @@ const ProfilePage: React.FC = () => {
         
         // Fetch student leaderboard data for points breakdown
         try {
-          const studentLeaderboardData = await getStudentLeaderboardDataForSemester(studentId, selectedSemester);
+          const studentLeaderboardData = await getStudentLeaderboardDataForSemester(studentId, selectedSemester || undefined);
           setLeaderboardData(studentLeaderboardData);
         } catch {
           console.log('No leaderboard data found for student, this is normal');
