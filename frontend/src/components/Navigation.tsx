@@ -98,16 +98,28 @@ const Navigation: React.FC = () => {
                 Reviews
               </Link>
             )}
-            <Link 
-              to="/projects" 
+            <Link
+              to="/projects"
               className={`font-medium pb-1 transition-colors ${
-                isActive('/projects') 
-                  ? 'text-blue-600 border-b-2 border-blue-600' 
+                isActive('/projects')
+                  ? 'text-blue-600 border-b-2 border-blue-600'
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
               Projects
             </Link>
+            {isFallSemester && (
+              <Link
+                to="/teams"
+                className={`font-medium pb-1 transition-colors ${
+                  isActive('/teams')
+                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Teams
+              </Link>
+            )}
             {!isFallSemester && (
               <Link 
                 to="/quiz" 

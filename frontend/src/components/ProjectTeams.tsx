@@ -303,8 +303,8 @@ const ProjectTeams: React.FC<ProjectTeamsProps> = ({
                     </span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-gray-900 truncate">{student.student_id}</p>
-                    <p className="text-xs text-gray-500 truncate">{student.full_name}</p>
+                    <p className="text-xs font-medium text-gray-900 truncate">{student.full_name}</p>
+                    <p className="text-xs text-gray-500 truncate">{student.student_id}</p>
                   </div>
                 </div>
               </div>

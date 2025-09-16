@@ -80,7 +80,10 @@ const TeamCard: React.FC<TeamCardProps> = ({
                     {member.student_id.substring(0, 2)}
                   </span>
                 </div>
-                <span className="text-sm font-medium text-gray-900">{member.student_id}</span>
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium text-gray-900">{member.full_name || 'Unknown Student'}</span>
+                  <span className="text-xs text-gray-500">{member.student_id}</span>
+                </div>
               </div>
               <span className="text-xs text-gray-500">
                 #{index + 1}
