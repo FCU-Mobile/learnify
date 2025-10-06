@@ -3,7 +3,7 @@ import { Star, Users, Eye } from 'lucide-react';
 
 interface StarRatingSummaryProps {
   submissionId: number;
-  projectType: 'midterm' | 'final' | 'project3';
+  projectType: 'midterm' | 'final';
   semesterId: string;
   teamId?: number | null;
   projectTitle: string;
@@ -33,14 +33,20 @@ const StarRatingSummary: React.FC<StarRatingSummaryProps> = ({
   }, [submissionId, projectType, semesterId, teamId]);
 
   const getProjectNumber = () => {
-    const projectNumberMap = { midterm: 1, final: 2, project3: 3 };
+    const projectNumberMap = { midterm: 1, final: 2 };
     return projectNumberMap[projectType];
   };
 
   const fetchStarRatings = async () => {
+    if (!semesterId) {
+      console.warn('StarRatingSummary: semesterId is empty, skipping fetch');
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
-      
+
       const response = await fetch(`/api/ratings/results?project_number=${getProjectNumber()}&semester_id=${semesterId}`);
       const data = await response.json();
       

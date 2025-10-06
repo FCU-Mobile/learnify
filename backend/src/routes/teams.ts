@@ -7,13 +7,13 @@ const router = Router();
 // Validation schemas
 const getTeamsSchema = z.object({
     semester_id: z.string().uuid(),
-    project_number: z.string().regex(/^[123]$/).transform(Number)
+    project_number: z.coerce.number().int().min(1).max(2)
 });
 
 const createTeamSchema = z.object({
     admin_id: z.string().min(1),
     semester_id: z.string().uuid(),
-    project_number: z.number().int().min(1).max(3),
+    project_number: z.number().int().min(1).max(2),
     team_name: z.string().min(1),
     member_ids: z.array(z.string().min(1)).min(3).max(4)
 });
@@ -21,7 +21,7 @@ const createTeamSchema = z.object({
 const shuffleTeamsSchema = z.object({
     admin_id: z.string().min(1),
     semester_id: z.string().uuid(),
-    project_number: z.number().int().min(1).max(3)
+    project_number: z.number().int().min(1).max(2)
 });
 
 const updateTeamSchema = z.object({
@@ -243,6 +243,14 @@ router.post('/', async (req: Request, res: Response) => {
             });
         }
 
+        // Only allow team creation for Project 1 (Midterm)
+        if (project_number !== 1) {
+            return res.status(400).json({
+                success: false,
+                error: 'Teams can only be created for Project 1 (Midterm). Project 2 (Final) is individual.'
+            });
+        }
+
         // Check if students can be grouped together
         const { data: canGroup, error: constraintError } = await supabase
             .rpc('can_students_be_grouped', {
@@ -327,6 +335,14 @@ router.post('/shuffle', async (req: Request, res: Response) => {
         //         error: 'Admin permissions required'
         //     });
         // }
+
+        // Only allow team shuffling for Project 1 (Midterm)
+        if (project_number !== 1) {
+            return res.status(400).json({
+                success: false,
+                error: 'Teams can only be shuffled for Project 1 (Midterm). Project 2 (Final) is individual.'
+            });
+        }
 
         // Get all unassigned students
         const { data: unassignedStudents, error: studentsError } = await supabase
@@ -834,6 +850,14 @@ router.post('/reshuffle', async (req: Request, res: Response) => {
         //         error: 'Admin permissions required'
         //     });
         // }
+
+        // Only allow team reshuffling for Project 1 (Midterm)
+        if (project_number !== 1) {
+            return res.status(400).json({
+                success: false,
+                error: 'Teams can only be reshuffled for Project 1 (Midterm). Project 2 (Final) is individual.'
+            });
+        }
 
         // Delete existing teams for this project
         const { error: deleteError } = await supabase

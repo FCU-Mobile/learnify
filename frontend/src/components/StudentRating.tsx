@@ -6,7 +6,7 @@ import type { StudentStarRating } from '../lib/api';
 
 interface StudentRatingProps {
   submissionId: number;
-  projectType: 'midterm' | 'final' | 'project3';
+  projectType: 'midterm' | 'final';
   semesterId: string;
   teamId?: number | null;
   isOwnProject?: boolean; // Prevent students from rating their own projects
@@ -62,7 +62,7 @@ const StudentRating: React.FC<StudentRatingProps> = ({
   };
 
   const getProjectNumber = () => {
-    const projectNumberMap = { midterm: 1, final: 2, project3: 3 };
+    const projectNumberMap = { midterm: 1, final: 2 };
     return projectNumberMap[projectType];
   };
 
@@ -74,20 +74,26 @@ const StudentRating: React.FC<StudentRatingProps> = ({
       setError(null);
       setSuccess(false);
 
-      const targetTeamId = teamId || submissionId;
+      const payload: any = {
+        project_number: getProjectNumber(),
+        stars: rating,
+        voter_id: studentId,
+        semester_id: semesterId
+      };
+
+      // For Project 1 (Midterm), use teamId. For Project 2 (Final), use submissionId
+      if (teamId) {
+        payload.team_id = teamId;
+      } else {
+        payload.submission_id = submissionId;
+      }
 
       const response = await fetch('/api/ratings/student', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          team_id: targetTeamId,
-          project_number: getProjectNumber(),
-          stars: rating,
-          voter_id: studentId,
-          semester_id: semesterId
-        })
+        body: JSON.stringify(payload)
       });
 
       const data = await response.json();

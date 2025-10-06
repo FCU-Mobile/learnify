@@ -6,7 +6,7 @@ import { useSemester } from '../contexts/SemesterContext';
 import ImageGallery from './ImageGallery';
 
 interface ProjectShowcaseProps {
-  filterType?: 'midterm' | 'final' | 'project3' | 'all';
+  filterType?: 'midterm' | 'final' | 'all';
 }
 
 const ProjectShowcase: React.FC<ProjectShowcaseProps> = ({ filterType = 'all' }) => {
@@ -16,7 +16,7 @@ const ProjectShowcase: React.FC<ProjectShowcaseProps> = ({ filterType = 'all' })
   const [finalVotes, setFinalVotes] = useState<ProjectWithVotes[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeFilter, setActiveFilter] = useState<'all' | 'midterm' | 'final' | 'project3'>(filterType);
+  const [activeFilter, setActiveFilter] = useState<'all' | 'midterm' | 'final'>(filterType);
   const [starRatingsData, setStarRatingsData] = useState<{[key: string]: any[]}>({});
   const [teacherRatingsData, setTeacherRatingsData] = useState<{[key: string]: any[]}>({});
   const [totalStudents, setTotalStudents] = useState<number>(0);
@@ -70,10 +70,10 @@ const ProjectShowcase: React.FC<ProjectShowcaseProps> = ({ filterType = 'all' })
       setMidtermVotes(midtermVotesData as ProjectWithVotes[]);
       setFinalVotes(finalVotesData as ProjectWithVotes[]);
 
-      if (selectedSemester === 'fall_2025' && ratingResults.length >= 4) {
-        const [project1Ratings, project2Ratings, project3Ratings, leaderboardData] = ratingResults;
-        
-        // Process star ratings
+      if (selectedSemester === 'fall_2025' && ratingResults.length >= 3) {
+        const [project1Ratings, project2Ratings, leaderboardData] = ratingResults;
+
+        // Process star ratings (2-project system)
         const starRatings: {[key: string]: any[]} = {};
         if (project1Ratings.success && project1Ratings.data.star_ratings) {
           starRatings['midterm'] = project1Ratings.data.star_ratings;
@@ -81,21 +81,15 @@ const ProjectShowcase: React.FC<ProjectShowcaseProps> = ({ filterType = 'all' })
         if (project2Ratings.success && project2Ratings.data.star_ratings) {
           starRatings['final'] = project2Ratings.data.star_ratings;
         }
-        if (project3Ratings.success && project3Ratings.data.star_ratings) {
-          starRatings['project3'] = project3Ratings.data.star_ratings;
-        }
         setStarRatingsData(starRatings);
 
-        // Process teacher ratings
+        // Process teacher ratings (2-project system)
         const teacherRatings: {[key: string]: any[]} = {};
         if (project1Ratings.success && project1Ratings.data.teacher_ratings) {
           teacherRatings['midterm'] = project1Ratings.data.teacher_ratings;
         }
         if (project2Ratings.success && project2Ratings.data.teacher_ratings) {
           teacherRatings['final'] = project2Ratings.data.teacher_ratings;
-        }
-        if (project3Ratings.success && project3Ratings.data.teacher_ratings) {
-          teacherRatings['project3'] = project3Ratings.data.teacher_ratings;
         }
         console.log('Teacher ratings data loaded:', teacherRatings);
         setTeacherRatingsData(teacherRatings);
@@ -130,8 +124,6 @@ const ProjectShowcase: React.FC<ProjectShowcaseProps> = ({ filterType = 'all' })
         return <BookOpen className="w-4 h-4" />;
       case 'final':
         return <GraduationCap className="w-4 h-4" />;
-      case 'project3':
-        return <BookOpen className="w-4 h-4" />;
       default:
         return <BookOpen className="w-4 h-4" />;
     }
@@ -143,8 +135,6 @@ const ProjectShowcase: React.FC<ProjectShowcaseProps> = ({ filterType = 'all' })
         return 'bg-blue-100 text-blue-800';
       case 'final':
         return 'bg-purple-100 text-purple-800';
-      case 'project3':
-        return 'bg-green-100 text-green-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -253,10 +243,7 @@ const ProjectShowcase: React.FC<ProjectShowcaseProps> = ({ filterType = 'all' })
       {/* Filter Tabs */}
       <div className="border-b border-gray-200">
         <nav className="flex space-x-8">
-          {(selectedSemester === 'fall_2025' 
-            ? ['all', 'midterm', 'final', 'project3']
-            : ['all', 'midterm', 'final']
-          ).map((filter) => (
+          {(['all', 'midterm', 'final']).map((filter) => (
             <button
               key={filter}
               onClick={() => setActiveFilter(filter as typeof activeFilter)}
@@ -269,17 +256,12 @@ const ProjectShowcase: React.FC<ProjectShowcaseProps> = ({ filterType = 'all' })
               <div className="flex items-center space-x-2">
                 {filter === 'midterm' && <BookOpen className="w-4 h-4" />}
                 {filter === 'final' && <GraduationCap className="w-4 h-4" />}
-                {filter === 'project3' && <Layers className="w-4 h-4" />}
                 <span>
-                  {filter === 'all' 
+                  {filter === 'all'
                     ? 'All Projects'
                     : filter === 'midterm'
-                    ? selectedSemester === 'fall_2025' ? 'Project 1' : 'Midterm Projects'
-                    : filter === 'final'
-                    ? selectedSemester === 'fall_2025' ? 'Project 2' : 'Final Projects'
-                    : filter === 'project3'
-                    ? 'Project 3'
-                    : `${filter} Projects`}
+                    ? selectedSemester === 'fall_2025' ? 'Project 1 (Team)' : 'Midterm Projects'
+                    : selectedSemester === 'fall_2025' ? 'Project 2 (Individual)' : 'Final Projects'}
                 </span>
                 <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">
                   {filter === 'all' ? projects.length : projects.filter(p => p.project_type === filter).length}
@@ -301,8 +283,6 @@ const ProjectShowcase: React.FC<ProjectShowcaseProps> = ({ filterType = 'all' })
               ? selectedSemester === 'fall_2025' ? 'No Project 1 submissions yet.' : 'No midterm projects have been submitted yet.'
               : activeFilter === 'final'
               ? selectedSemester === 'fall_2025' ? 'No Project 2 submissions yet.' : 'No final projects have been submitted yet.'
-              : activeFilter === 'project3'
-              ? 'No Project 3 submissions yet.'
               : `No ${activeFilter} projects have been submitted yet.`}
           </p>
         </div>
@@ -363,13 +343,9 @@ const ProjectShowcase: React.FC<ProjectShowcaseProps> = ({ filterType = 'all' })
                   <div className={`inline-flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium ${getProjectTypeColor(project.project_type || 'midterm')}`}>
                     {getProjectTypeIcon(project.project_type || 'midterm')}
                     <span>
-                      {project.project_type === 'midterm' 
-                        ? selectedSemester === 'fall_2025' ? 'Project 1' : 'Midterm'
-                        : project.project_type === 'final'
-                        ? selectedSemester === 'fall_2025' ? 'Project 2' : 'Final'
-                        : project.project_type === 'project3'
-                        ? 'Project 3'
-                        : 'Midterm'}
+                      {project.project_type === 'midterm'
+                        ? selectedSemester === 'fall_2025' ? 'Project 1 (Team)' : 'Midterm'
+                        : selectedSemester === 'fall_2025' ? 'Project 2 (Individual)' : 'Final'}
                     </span>
                   </div>
                 </div>

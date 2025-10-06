@@ -134,39 +134,29 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ semesterCode }) => {
         {/* Scoring Information for Fall */}
         <div className="p-6 bg-gradient-to-r from-green-50 to-blue-50 border-b border-gray-100">
           <h4 className="text-base font-semibold text-gray-900 mb-4">
-            📊 Fall 2025 Scoring System (Updated)
+            📊 Fall 2025 Scoring System (2-Project System)
           </h4>
           <div className="bg-white p-4 rounded-lg shadow-sm">
             <div className="space-y-3">
-              <div className="text-sm font-medium text-gray-800 mb-3">Each Project = 30% (20% Teacher + 10% Competition)</div>
+              <div className="text-sm font-medium text-gray-800 mb-3">Total: Quiz 10% + Midterm 40% + Final 50%</div>
               <ul className="space-y-2 text-sm">
                 <li className="flex items-start">
                   <span className="w-2 h-2 bg-blue-500 rounded-full mr-3 mt-1.5"></span>
                   <div>
-                    <span className="text-blue-600 font-semibold">Project 1: 30%</span>
+                    <span className="text-blue-600 font-semibold">Project 1 (Midterm - Team): 40%</span>
                     <div className="text-xs text-gray-600 ml-0 mt-1">
-                      • 20% Teacher marking<br/>
-                      • 10% Competition win bonus
+                      • Team-based submission<br/>
+                      • Teacher rating + Student voting bonus
                     </div>
                   </div>
                 </li>
                 <li className="flex items-start">
-                  <span className="w-2 h-2 bg-blue-600 rounded-full mr-3 mt-1.5"></span>
+                  <span className="w-2 h-2 bg-purple-600 rounded-full mr-3 mt-1.5"></span>
                   <div>
-                    <span className="text-blue-600 font-semibold">Project 2: 30%</span>
+                    <span className="text-purple-600 font-semibold">Project 2 (Final - Individual): 50%</span>
                     <div className="text-xs text-gray-600 ml-0 mt-1">
-                      • 20% Teacher marking<br/>
-                      • 10% Competition win bonus
-                    </div>
-                  </div>
-                </li>
-                <li className="flex items-start">
-                  <span className="w-2 h-2 bg-green-500 rounded-full mr-3 mt-1.5"></span>
-                  <div>
-                    <span className="text-green-600 font-semibold">Project 3: 30%</span>
-                    <div className="text-xs text-gray-600 ml-0 mt-1">
-                      • 20% Teacher marking<br/>
-                      • 10% Competition win bonus
+                      • Individual submission<br/>
+                      • Teacher rating + Student voting bonus
                     </div>
                   </div>
                 </li>
@@ -225,37 +215,27 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ semesterCode }) => {
         </h4>
         <div className="bg-white p-4 rounded-lg shadow-sm">
           {isFallSemester ? (
-            // Fall 2025 Scoring
+            // Fall 2025 Scoring - 2 Project System
             <div className="space-y-3">
-              <div className="text-sm font-medium text-gray-800 mb-3">Each Project = 30% (20% Teacher + 10% Competition)</div>
+              <div className="text-sm font-medium text-gray-800 mb-3">Total: Quiz 10% + Midterm 40% + Final 50%</div>
               <ul className="space-y-2 text-sm">
                 <li className="flex items-start">
                   <span className="w-2 h-2 bg-blue-500 rounded-full mr-3 mt-1.5"></span>
                   <div>
-                    <span className="text-blue-600 font-semibold">Project 1: 30%</span>
+                    <span className="text-blue-600 font-semibold">Project 1 (Midterm - Team): 40%</span>
                     <div className="text-xs text-gray-600 ml-0 mt-1">
-                      • 20% Teacher marking<br/>
-                      • 10% Competition win bonus
+                      • Team-based submission<br/>
+                      • Teacher rating + Student voting bonus
                     </div>
                   </div>
                 </li>
                 <li className="flex items-start">
-                  <span className="w-2 h-2 bg-blue-600 rounded-full mr-3 mt-1.5"></span>
+                  <span className="w-2 h-2 bg-purple-600 rounded-full mr-3 mt-1.5"></span>
                   <div>
-                    <span className="text-blue-600 font-semibold">Project 2: 30%</span>
+                    <span className="text-purple-600 font-semibold">Project 2 (Final - Individual): 50%</span>
                     <div className="text-xs text-gray-600 ml-0 mt-1">
-                      • 20% Teacher marking<br/>
-                      • 10% Competition win bonus
-                    </div>
-                  </div>
-                </li>
-                <li className="flex items-start">
-                  <span className="w-2 h-2 bg-green-500 rounded-full mr-3 mt-1.5"></span>
-                  <div>
-                    <span className="text-green-600 font-semibold">Project 3: 30%</span>
-                    <div className="text-xs text-gray-600 ml-0 mt-1">
-                      • 20% Teacher marking<br/>
-                      • 10% Competition win bonus
+                      • Individual submission<br/>
+                      • Teacher rating + Student voting bonus
                     </div>
                   </div>
                 </li>
@@ -436,8 +416,8 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ semesterCode }) => {
                       )}
                       {entry.points_breakdown.project_notes_points > 0 && (
                         <div className="flex justify-between">
-                          <span>{isFallSemester ? 'Project 3:' : 'Project Notes:'}</span>
-                          <span className={isFallSemester ? "text-green-600" : "text-purple-600"}>+{entry.points_breakdown.project_notes_points}</span>
+                          <span>Project Notes:</span>
+                          <span className="text-purple-600">+{entry.points_breakdown.project_notes_points}</span>
                         </div>
                       )}
                       {entry.points_breakdown.voting_points > 0 && (

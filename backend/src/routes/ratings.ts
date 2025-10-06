@@ -6,23 +6,31 @@ const router = Router();
 
 // Validation schemas
 const teacherRatingSchema = z.object({
-  team_id: z.number().int().positive(),
-  project_number: z.number().int().min(1).max(3),
-  rating: z.number().min(0).max(20),
+  team_id: z.number().int().positive().nullable().optional(),
+  submission_id: z.number().int().positive().nullable().optional(),
+  project_number: z.number().int().min(1).max(2),  // 2-project system
+  rating: z.number().min(0).max(50),  // Max 50 for Project 2 (Final)
   teacher_id: z.string().min(1),
   semester_id: z.string().uuid()
-});
+}).refine(
+  (data) => (data.team_id != null) !== (data.submission_id != null),
+  { message: 'Either team_id or submission_id must be provided, but not both' }
+);
 
 const studentRatingSchema = z.object({
-  team_id: z.number().int().positive(),
-  project_number: z.number().int().min(1).max(3),
+  team_id: z.number().int().positive().nullable().optional(),
+  submission_id: z.number().int().positive().nullable().optional(),
+  project_number: z.number().int().min(1).max(2),  // 2-project system
   stars: z.number().int().min(1).max(5),
   voter_id: z.string().min(1),
   semester_id: z.string().uuid()
-});
+}).refine(
+  (data) => (data.team_id != null) !== (data.submission_id != null),
+  { message: 'Either team_id or submission_id must be provided, but not both' }
+);
 
 const calculateScoresSchema = z.object({
-  project_number: z.number().int().min(1).max(3),
+  project_number: z.number().int().min(1).max(2),  // 2-project system
   semester_id: z.string().uuid(),
   admin_id: z.string().min(1)
 });
@@ -49,7 +57,7 @@ async function verifyAdminPermissions(adminId: string): Promise<boolean> {
 router.post('/teacher', async (req: Request, res: Response) => {
   try {
     const validatedBody = teacherRatingSchema.parse(req.body);
-    const { team_id: teamId, project_number: projectNumber, rating, teacher_id: teacherId, semester_id: semesterId } = validatedBody;
+    const { team_id: teamId, submission_id: submissionId, project_number: projectNumber, rating, teacher_id: teacherId, semester_id: semesterId } = validatedBody;
 
     // Verify admin permissions
     const isAdmin = await verifyAdminPermissions(teacherId);
@@ -61,21 +69,68 @@ router.post('/teacher', async (req: Request, res: Response) => {
       });
     }
 
-    // Insert or update teacher rating
-    const { data: ratingData, error } = await supabase
+    // Build the upsert data
+    const upsertData: any = {
+      project_number: projectNumber,
+      teacher_rating: rating,
+      teacher_id: teacherId,
+      semester_id: semesterId,
+      updated_at: new Date().toISOString()
+    };
+
+    // Add either team_id or submission_id
+    if (teamId) {
+      upsertData.team_id = teamId;
+      upsertData.submission_id = null;
+    } else {
+      upsertData.submission_id = submissionId;
+      upsertData.team_id = null;
+    }
+
+    // Check if rating already exists
+    let existingQuery = supabase
       .from('project_ratings')
-      .upsert({
-        team_id: teamId,
-        project_number: projectNumber,
-        teacher_rating: rating,
-        teacher_id: teacherId,
-        semester_id: semesterId,
-        updated_at: new Date().toISOString()
-      }, {
-        onConflict: 'team_id,project_number,semester_id'
-      })
-      .select()
-      .single();
+      .select('id')
+      .eq('project_number', projectNumber)
+      .eq('semester_id', semesterId);
+
+    if (teamId) {
+      existingQuery = existingQuery.eq('team_id', teamId);
+    } else {
+      existingQuery = existingQuery.eq('submission_id', submissionId);
+    }
+
+    const { data: existingRating } = await existingQuery.single();
+
+    let ratingData;
+    let error;
+
+    if (existingRating) {
+      // Update existing rating
+      const updateResult = await supabase
+        .from('project_ratings')
+        .update({
+          teacher_rating: rating,
+          teacher_id: teacherId,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existingRating.id)
+        .select()
+        .single();
+
+      ratingData = updateResult.data;
+      error = updateResult.error;
+    } else {
+      // Insert new rating
+      const insertResult = await supabase
+        .from('project_ratings')
+        .insert(upsertData)
+        .select()
+        .single();
+
+      ratingData = insertResult.data;
+      error = insertResult.error;
+    }
 
     if (error) {
       console.error('Teacher rating error:', error);
@@ -109,17 +164,23 @@ router.post('/teacher', async (req: Request, res: Response) => {
 router.post('/student', async (req: Request, res: Response) => {
   try {
     const validatedBody = studentRatingSchema.parse(req.body);
-    const { team_id: teamId, project_number: projectNumber, stars, voter_id: voterId, semester_id: semesterId } = validatedBody;
+    const { team_id: teamId, submission_id: submissionId, project_number: projectNumber, stars, voter_id: voterId, semester_id: semesterId } = validatedBody;
 
-    // Check if student has already voted for this team/project
-    const { data: existingVote } = await supabase
+    // Check if student has already voted for this team/project/submission
+    let existingVoteQuery = supabase
       .from('project_star_ratings')
       .select('id')
-      .eq('team_id', teamId)
       .eq('project_number', projectNumber)
       .eq('voter_id', voterId)
-      .eq('semester_id', semesterId)
-      .single();
+      .eq('semester_id', semesterId);
+
+    if (teamId) {
+      existingVoteQuery = existingVoteQuery.eq('team_id', teamId);
+    } else {
+      existingVoteQuery = existingVoteQuery.eq('submission_id', submissionId);
+    }
+
+    const { data: existingVote } = await existingVoteQuery.single();
 
     if (existingVote) {
       return res.status(400).json({
@@ -129,16 +190,26 @@ router.post('/student', async (req: Request, res: Response) => {
       });
     }
 
+    // Build insert data
+    const insertData: any = {
+      project_number: projectNumber,
+      stars: stars,
+      voter_id: voterId,
+      semester_id: semesterId
+    };
+
+    if (teamId) {
+      insertData.team_id = teamId;
+      insertData.submission_id = null;
+    } else {
+      insertData.submission_id = submissionId;
+      insertData.team_id = null;
+    }
+
     // Insert star rating
     const { data: starRating, error } = await supabase
       .from('project_star_ratings')
-      .insert({
-        team_id: teamId,
-        project_number: projectNumber,
-        stars: stars,
-        voter_id: voterId,
-        semester_id: semesterId
-      })
+      .insert(insertData)
       .select()
       .single();
 

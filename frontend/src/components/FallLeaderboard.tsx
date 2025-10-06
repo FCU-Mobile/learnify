@@ -103,7 +103,7 @@ const FallLeaderboard: React.FC = () => {
           <span className="text-sm text-gray-500">{totalStudents} students</span>
         </div>
         <p className="text-sm text-gray-600 mt-1">
-          Scores based on Quiz Points (10%) + Project Ratings (30% each)
+          Scores based on Quiz (10%) + Midterm/Team (40%) + Final/Individual (50%)
         </p>
       </div>
 
@@ -135,9 +135,8 @@ const FallLeaderboard: React.FC = () => {
                   <div className="text-xs text-gray-500 space-y-1">
                     <div>Quiz: {student.quiz_points.toFixed(1)}</div>
                     <div className="flex space-x-2">
-                      <span>P1: {student.project1_rating.toFixed(1)}</span>
-                      <span>P2: {student.project2_rating.toFixed(1)}</span>
-                      <span>P3: {student.project3_rating.toFixed(1)}</span>
+                      <span>Midterm: {student.project1_rating.toFixed(1)}</span>
+                      <span>Final: {student.project2_rating.toFixed(1)}</span>
                     </div>
                   </div>
                 </div>
@@ -155,7 +154,7 @@ const FallLeaderboard: React.FC = () => {
       {/* Legend */}
       <div className="px-6 py-4 bg-gray-50 border-t border-gray-100">
         <div className="text-xs text-gray-500">
-          <p><strong>Scoring:</strong> Quiz (10% of total quiz points) + Project 1 (30%) + Project 2 (30%) + Project 3 (30%)</p>
+          <p><strong>Scoring:</strong> Quiz (10% of total quiz points) + Project 1 (40%) + Project 2 (50%)</p>
           <p><strong>Projects:</strong> Rated by instructor from 0-20 points each</p>
         </div>
       </div>
