@@ -36,7 +36,7 @@ const LeaderboardPage: React.FC = () => {
                   </p>
                   {isFallSemester && (
                     <div className="mt-4 text-sm text-purple-200">
-                      <p>📊 Quiz Points (10%) + Project Ratings (30% each)</p>
+                      <p>📊 Quiz (10%) + Midterm (40%) + Final (50%)</p>
                     </div>
                   )}
                 </div>
