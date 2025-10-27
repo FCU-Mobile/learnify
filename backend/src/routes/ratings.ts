@@ -388,7 +388,7 @@ router.get('/results', async (req: Request, res: Response) => {
     // Get star ratings summary
     const { data: starRatings, error: starError } = await supabase
       .from('project_star_ratings')
-      .select('team_id, stars, voter_id')
+      .select('team_id, submission_id, stars, voter_id')
       .eq('project_number', projectNumber)
       .eq('semester_id', semester_id as string);
 

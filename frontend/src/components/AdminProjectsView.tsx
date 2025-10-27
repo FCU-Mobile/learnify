@@ -129,29 +129,33 @@ const AdminProjectsView: React.FC<AdminProjectsViewProps> = ({ semesterId }) => 
 
   const getStarRatingCount = (projectId: number, projectType: string, starRatings: {[key: string]: any[]}, projectsData: Submission[]): number => {
     if (!starRatings[projectType]) return 0;
-    
-    // Find the team ID for this project
+
     const project = projectsData.find(p => p.id === projectId);
-    const targetTeamId = project?.team?.team_id || projectId;
-    
-    
-    const projectRatings = starRatings[projectType].filter((rating: any) => 
-      rating.team_id === targetTeamId
-    );
-    
+    const projectRatings = starRatings[projectType].filter((rating: any) => {
+      // For team projects (Project 1/Midterm), match by team_id
+      if (project?.team?.team_id) {
+        return rating.team_id === project.team.team_id;
+      }
+      // For individual projects (Project 2/Final), match by submission_id
+      return rating.submission_id === projectId;
+    });
+
     return projectRatings.length;
   };
 
   const hasTeacherRating = (projectId: number, projectType: string, teacherRatings: {[key: string]: any[]}, projectsData: Submission[]): boolean => {
     if (!teacherRatings[projectType]) return false;
-    
-    // Find the team ID for this project
+
     const project = projectsData.find(p => p.id === projectId);
-    const targetTeamId = project?.team?.team_id || projectId;
-    
-    return teacherRatings[projectType].some((rating: any) => 
-      rating.team_id === targetTeamId
-    );
+
+    return teacherRatings[projectType].some((rating: any) => {
+      // For team projects (Project 1/Midterm), match by team_id
+      if (project?.team?.team_id) {
+        return rating.team_id === project.team.team_id;
+      }
+      // For individual projects (Project 2/Final), match by submission_id
+      return rating.submission_id === projectId;
+    });
   };
 
   const filteredProjects = projects.filter(project => {

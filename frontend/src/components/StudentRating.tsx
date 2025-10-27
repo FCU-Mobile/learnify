@@ -42,13 +42,20 @@ const StudentRating: React.FC<StudentRatingProps> = ({
       // Get star ratings and find if current student has already rated this project
       const response = await fetch(`/api/ratings/results?project_number=${getProjectNumber()}&semester_id=${semesterId}`);
       const data = await response.json();
-      
+
       if (data.success && data.data.star_ratings) {
-        const targetTeamId = teamId || submissionId;
-        const userRating = data.data.star_ratings.find((r: any) => 
-          r.team_id === targetTeamId && r.voter_id === studentId
-        );
-        
+        const userRating = data.data.star_ratings.find((r: any) => {
+          // Check voter_id matches
+          if (r.voter_id !== studentId) return false;
+
+          // For team projects, match by team_id
+          if (teamId) {
+            return r.team_id === teamId;
+          }
+          // For individual projects, match by submission_id
+          return r.submission_id === submissionId;
+        });
+
         if (userRating) {
           setExistingRating(userRating);
           setRating(userRating.stars);

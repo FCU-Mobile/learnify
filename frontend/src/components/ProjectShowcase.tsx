@@ -169,12 +169,17 @@ const ProjectShowcase: React.FC<ProjectShowcaseProps> = ({ filterType = 'all' })
     if (selectedSemester !== 'fall_2025' || !starRatings[projectType]) {
       return 0;
     }
-    
-    const targetTeamId = projectsData.find(p => p.id === projectId)?.team?.team_id || projectId;
-    const projectRatings = starRatings[projectType].filter((rating: any) => 
-      rating.team_id === targetTeamId
-    );
-    
+
+    const project = projectsData.find(p => p.id === projectId);
+    const projectRatings = starRatings[projectType].filter((rating: any) => {
+      // For team projects (Project 1/Midterm), match by team_id
+      if (project?.team?.team_id) {
+        return rating.team_id === project.team.team_id;
+      }
+      // For individual projects (Project 2/Final), match by submission_id
+      return rating.submission_id === projectId;
+    });
+
     return projectRatings.length;
   };
 
@@ -182,13 +187,17 @@ const ProjectShowcase: React.FC<ProjectShowcaseProps> = ({ filterType = 'all' })
     if (selectedSemester !== 'fall_2025' || !teacherRatings[projectType]) {
       return false;
     }
-    
+
     const project = projectsData.find(p => p.id === projectId);
-    const targetTeamId = project?.team?.team_id || projectId;
-    
-    return teacherRatings[projectType].some((rating: any) => 
-      rating.team_id === targetTeamId
-    );
+
+    return teacherRatings[projectType].some((rating: any) => {
+      // For team projects (Project 1/Midterm), match by team_id
+      if (project?.team?.team_id) {
+        return rating.team_id === project.team.team_id;
+      }
+      // For individual projects (Project 2/Final), match by submission_id
+      return rating.submission_id === projectId;
+    });
   };
 
   const formatDate = (dateString: string) => {
