@@ -13,7 +13,11 @@
       "mcp__filesystem__create_directory",
       "mcp__filesystem__move_file",
       "Bash(jq:*)",
-      "Bash(npm run dev:*)"
+      "Bash(npm run dev:*)",
+      "Bash(docker:*)",
+      "Bash(/dev/null)",
+      "Bash(npm run supabase:start:*)",
+      "Bash(npm run supabase:stop:*)"
     ],
     "deny": [
       "Bash(rm:*)"

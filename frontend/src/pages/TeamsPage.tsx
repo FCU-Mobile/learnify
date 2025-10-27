@@ -232,7 +232,6 @@ const TeamsPage: React.FC = () => {
             >
               <option value={1}>Project 1</option>
               <option value={2}>Project 2</option>
-              <option value={3}>Project 3</option>
             </select>
           </div>
         </div>

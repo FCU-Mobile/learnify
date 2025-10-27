@@ -382,75 +382,104 @@ router.post('/', upload.fields([
         // For project submissions, check team membership and validate team submission rules
         let teamId = null;
         let teamSubmissionCheck = null;
-        
+
         if (submission_type === 'project' && project_type) {
-            // Get project number from project_type (midterm=1, final=2, project3=3)
+            // Get project number from project_type (midterm=1, final=2)
             const projectNumberMap: { [key: string]: number } = {
                 'midterm': 1,
-                'final': 2,
-                'project3': 3
+                'final': 2
             };
             const projectNumber = projectNumberMap[project_type];
-            
+
             if (projectNumber && semesterId) {
-                // Check if student is in a team for this project
-                const { data: teamMembership, error: teamError } = await supabase
-                    .from('team_members')
-                    .select(`
-                        team_id,
-                        project_teams!inner(
-                            id,
-                            team_name,
-                            project_number,
-                            semester_id
-                        )
-                    `)
-                    .eq('student_id', student_id)
-                    .eq('project_teams.project_number', projectNumber)
-                    .eq('project_teams.semester_id', semesterId)
-                    .single();
-                
-                if (teamError && teamError.code !== 'PGRST116') {
-                    console.error('Error checking team membership:', teamError);
-                }
-                
-                if (teamMembership) {
-                    teamId = teamMembership.team_id;
-                    
-                    // Check if team already has a submission for this project
-                    const { data: existingTeamSubmission, error: teamSubError } = await supabase
-                        .from('submissions')
-                        .select('id, title, created_at, student_id')
-                        .eq('submission_type', 'project')
-                        .eq('project_type', project_type)
-                        .eq('team_id', teamId)
-                        .eq('semester_id', semesterId)
+                // IMPORTANT: Project 2 (Final) MUST be individual, not team-based
+                if (projectNumber === 2) {
+                    // For final project, ensure NO team submission attempt
+                    // Check if student is trying to submit as a team (which shouldn't happen for final)
+                    const { data: teamMembership } = await supabase
+                        .from('team_members')
+                        .select(`
+                            team_id,
+                            project_teams!inner(
+                                id,
+                                team_name,
+                                project_number,
+                                semester_id
+                            )
+                        `)
+                        .eq('student_id', student_id)
+                        .eq('project_teams.project_number', projectNumber)
+                        .eq('project_teams.semester_id', semesterId)
                         .single();
-                    
-                    if (teamSubError && teamSubError.code !== 'PGRST116') {
-                        console.error('Error checking team submission:', teamSubError);
-                        return res.status(500).json({
+
+                    if (teamMembership) {
+                        return res.status(400).json({
                             success: false,
-                            error: 'Failed to validate team submission',
-                            message: 'Could not check for existing team submissions'
+                            error: 'Project 2 (Final) must be individual',
+                            message: 'The final project must be submitted individually. Team submissions are only allowed for Project 1 (Midterm).'
                         });
                     }
-                    
-                    if (existingTeamSubmission) {
-                        return res.status(409).json({
-                            success: false,
-                            error: 'Team already submitted',
-                            message: `Your team has already submitted a ${project_type} project titled "${existingTeamSubmission.title}". Only one submission per team is allowed.`,
-                            details: {
-                                existing_submission: {
-                                    id: existingTeamSubmission.id,
-                                    title: existingTeamSubmission.title,
-                                    submitted_by: existingTeamSubmission.student_id,
-                                    submitted_at: existingTeamSubmission.created_at
-                                },
-                                suggestion: 'Any team member can modify the existing submission or contact the original submitter.'
-                            }
-                        });
+                    // For final project, teamId remains null (individual submission)
+                } else if (projectNumber === 1) {
+                    // Project 1 (Midterm) - Check for team membership
+                    const { data: teamMembership, error: teamError } = await supabase
+                        .from('team_members')
+                        .select(`
+                            team_id,
+                            project_teams!inner(
+                                id,
+                                team_name,
+                                project_number,
+                                semester_id
+                            )
+                        `)
+                        .eq('student_id', student_id)
+                        .eq('project_teams.project_number', projectNumber)
+                        .eq('project_teams.semester_id', semesterId)
+                        .single();
+
+                    if (teamError && teamError.code !== 'PGRST116') {
+                        console.error('Error checking team membership:', teamError);
+                    }
+
+                    if (teamMembership) {
+                        teamId = teamMembership.team_id;
+
+                        // Check if team already has a submission for this project
+                        const { data: existingTeamSubmission, error: teamSubError } = await supabase
+                            .from('submissions')
+                            .select('id, title, created_at, student_id')
+                            .eq('submission_type', 'project')
+                            .eq('project_type', project_type)
+                            .eq('team_id', teamId)
+                            .eq('semester_id', semesterId)
+                            .single();
+
+                        if (teamSubError && teamSubError.code !== 'PGRST116') {
+                            console.error('Error checking team submission:', teamSubError);
+                            return res.status(500).json({
+                                success: false,
+                                error: 'Failed to validate team submission',
+                                message: 'Could not check for existing team submissions'
+                            });
+                        }
+
+                        if (existingTeamSubmission) {
+                            return res.status(409).json({
+                                success: false,
+                                error: 'Team already submitted',
+                                message: `Your team has already submitted a ${project_type} project titled "${existingTeamSubmission.title}". Only one submission per team is allowed.`,
+                                details: {
+                                    existing_submission: {
+                                        id: existingTeamSubmission.id,
+                                        title: existingTeamSubmission.title,
+                                        submitted_by: existingTeamSubmission.student_id,
+                                        submitted_at: existingTeamSubmission.created_at
+                                    },
+                                    suggestion: 'Any team member can modify the existing submission or contact the original submitter.'
+                                }
+                            });
+                        }
                     }
                 }
             }

@@ -6,7 +6,7 @@ import type { TeacherRating as TeacherRatingType } from '../lib/api';
 
 interface TeacherRatingProps {
   submissionId: number;
-  projectType: 'midterm' | 'final' | 'project3';
+  projectType: 'midterm' | 'final';
   semesterId: string;
   teamId?: number | null;
 }
@@ -29,29 +29,45 @@ const TeacherRating: React.FC<TeacherRatingProps> = ({
     if (isAdmin) {
       fetchExistingRating();
     }
-  }, [submissionId, isAdmin]);
+  }, [submissionId, isAdmin, projectType, semesterId, teamId]);
 
   const fetchExistingRating = async () => {
     try {
       setLoading(true);
       const ratings = await getProjectRatings(projectType, semesterId);
-      // Find rating for this team if it's a team project
-      const teacherRating = teamId 
+      // Find rating for this team/submission
+      const teacherRating = teamId
         ? ratings.find(r => r.team_id === teamId)
-        : ratings.find(r => r.team_id === submissionId); // For individual submissions
+        : ratings.find(r => r.submission_id === submissionId); // For individual Project 2
       if (teacherRating) {
         setExistingRating(teacherRating);
         setRating(teacherRating.teacher_rating);
+      } else {
+        // Reset rating if no existing rating found
+        setExistingRating(null);
+        setRating(0);
       }
     } catch (err) {
       console.error('Failed to fetch existing rating:', err);
+      // Reset on error
+      setExistingRating(null);
+      setRating(0);
     } finally {
       setLoading(false);
     }
   };
 
+  // Get max score based on project type
+  // Project 1: 30% teacher rating (+ 10% peer voting = 40% total)
+  // Project 2: 40% teacher rating (+ 10% peer voting = 50% total)
+  const getMaxScore = () => {
+    return projectType === 'midterm' ? 30 : 40;
+  };
+
+  const maxScore = getMaxScore();
+
   const handleSubmit = async () => {
-    if (!studentId || rating < 0 || rating > 20) return;
+    if (!studentId || rating < 0 || rating > maxScore) return;
 
     try {
       setSaving(true);
@@ -59,14 +75,13 @@ const TeacherRating: React.FC<TeacherRatingProps> = ({
       setSuccess(false);
 
       // Map project type to project number
-      const projectNumberMap = { midterm: 1, final: 2, project3: 3 };
+      const projectNumberMap = { midterm: 1, final: 2 };
       const projectNumber = projectNumberMap[projectType];
 
-      // Use teamId if available, otherwise use submissionId as teamId for individual projects
-      const targetTeamId = teamId || submissionId;
-
+      // For Project 1 (Midterm), use teamId. For Project 2 (Final), use submissionId
       const newRating = await submitTeacherRating(
-        targetTeamId,
+        teamId || null,
+        submissionId,
         projectNumber,
         rating,
         studentId,
@@ -98,61 +113,60 @@ const TeacherRating: React.FC<TeacherRatingProps> = ({
       <div className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Project Score (0-20%)
+            {projectType === 'midterm' ? 'Project 1 Teacher Rating (0-30)' : 'Project 2 Teacher Rating (0-40)'}
           </label>
           <div className="flex items-center space-x-4">
             <input
               type="range"
               min="0"
-              max="20"
+              max={maxScore}
               step="0.5"
               value={rating}
               onChange={(e) => setRating(parseFloat(e.target.value))}
               className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
               style={{
-                background: `linear-gradient(to right, #8b5cf6 0%, #8b5cf6 ${(rating / 20) * 100}%, #e5e7eb ${(rating / 20) * 100}%, #e5e7eb 100%)`
+                background: `linear-gradient(to right, #8b5cf6 0%, #8b5cf6 ${(rating / maxScore) * 100}%, #e5e7eb ${(rating / maxScore) * 100}%, #e5e7eb 100%)`
               }}
             />
             <div className="w-20 text-center">
               <span className="text-2xl font-bold text-purple-600">{rating}</span>
-              <span className="text-sm text-gray-500">%</span>
             </div>
           </div>
         </div>
 
         {/* Visual indicator */}
         <div className="flex justify-between text-xs text-gray-500">
-          <span>0%</span>
-          <span>5%</span>
-          <span>10%</span>
-          <span>15%</span>
-          <span>20%</span>
+          <span>0</span>
+          <span>{(maxScore * 0.25).toFixed(0)}</span>
+          <span>{(maxScore * 0.5).toFixed(0)}</span>
+          <span>{(maxScore * 0.75).toFixed(0)}</span>
+          <span>{maxScore}</span>
         </div>
 
         {/* Quality indicators */}
         <div className="grid grid-cols-4 gap-2 text-center">
-          <div className={`p-2 rounded ${rating <= 5 ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-400'}`}>
+          <div className={`p-2 rounded ${rating <= maxScore * 0.25 ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-400'}`}>
             <div className="text-xs font-medium">Poor</div>
-            <div className="text-xs">0-5%</div>
+            <div className="text-xs">0-{(maxScore * 0.25).toFixed(0)}</div>
           </div>
-          <div className={`p-2 rounded ${rating > 5 && rating <= 10 ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-400'}`}>
+          <div className={`p-2 rounded ${rating > maxScore * 0.25 && rating <= maxScore * 0.5 ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-400'}`}>
             <div className="text-xs font-medium">Fair</div>
-            <div className="text-xs">5-10%</div>
+            <div className="text-xs">{(maxScore * 0.25).toFixed(0)}-{(maxScore * 0.5).toFixed(0)}</div>
           </div>
-          <div className={`p-2 rounded ${rating > 10 && rating <= 15 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-400'}`}>
+          <div className={`p-2 rounded ${rating > maxScore * 0.5 && rating <= maxScore * 0.75 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-400'}`}>
             <div className="text-xs font-medium">Good</div>
-            <div className="text-xs">10-15%</div>
+            <div className="text-xs">{(maxScore * 0.5).toFixed(0)}-{(maxScore * 0.75).toFixed(0)}</div>
           </div>
-          <div className={`p-2 rounded ${rating > 15 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}>
+          <div className={`p-2 rounded ${rating > maxScore * 0.75 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}>
             <div className="text-xs font-medium">Excellent</div>
-            <div className="text-xs">15-20%</div>
+            <div className="text-xs">{(maxScore * 0.75).toFixed(0)}-{maxScore}</div>
           </div>
         </div>
 
         {existingRating && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
             <p className="text-sm text-blue-700">
-              Previous rating: <span className="font-semibold">{existingRating.teacher_rating}%</span>
+              Previous rating: <span className="font-semibold">{existingRating.teacher_rating}</span>
             </p>
           </div>
         )}

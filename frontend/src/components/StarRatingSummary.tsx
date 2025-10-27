@@ -3,14 +3,15 @@ import { Star, Users, Eye } from 'lucide-react';
 
 interface StarRatingSummaryProps {
   submissionId: number;
-  projectType: 'midterm' | 'final' | 'project3';
+  projectType: 'midterm' | 'final';
   semesterId: string;
   teamId?: number | null;
   projectTitle: string;
 }
 
 interface StarData {
-  team_id: number;
+  team_id?: number | null;
+  submission_id?: number | null;
   stars: number;
   voter_id: string;
 }
@@ -33,22 +34,32 @@ const StarRatingSummary: React.FC<StarRatingSummaryProps> = ({
   }, [submissionId, projectType, semesterId, teamId]);
 
   const getProjectNumber = () => {
-    const projectNumberMap = { midterm: 1, final: 2, project3: 3 };
+    const projectNumberMap = { midterm: 1, final: 2 };
     return projectNumberMap[projectType];
   };
 
   const fetchStarRatings = async () => {
+    if (!semesterId) {
+      console.warn('StarRatingSummary: semesterId is empty, skipping fetch');
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
-      
+
       const response = await fetch(`/api/ratings/results?project_number=${getProjectNumber()}&semester_id=${semesterId}`);
       const data = await response.json();
-      
+
       if (data.success && data.data.star_ratings) {
-        const targetTeamId = teamId || submissionId;
-        const projectStarRatings = data.data.star_ratings.filter((rating: StarData) => 
-          rating.team_id === targetTeamId
-        );
+        const projectStarRatings = data.data.star_ratings.filter((rating: StarData) => {
+          // For team projects (Project 1/Midterm), match by team_id
+          if (teamId) {
+            return rating.team_id === teamId;
+          }
+          // For individual projects (Project 2/Final), match by submission_id
+          return rating.submission_id === submissionId;
+        });
         
         setStarRatings(projectStarRatings);
         

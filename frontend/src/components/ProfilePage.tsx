@@ -298,35 +298,25 @@ const ProfilePage: React.FC = () => {
                 {selectedSemester === 'fall_2025' ? (
                   // Fall 2025 scoring system
                   <div className="space-y-3">
-                    <div className="text-sm font-medium text-gray-800 mb-3">Each Project = 30% (20% Teacher + 10% Competition)</div>
+                    <div className="text-sm font-medium text-gray-800 mb-3">Project Grading Breakdown</div>
                     <ul className="space-y-2 text-sm">
                       <li className="flex items-start">
                         <span className="w-2 h-2 bg-blue-500 rounded-full mr-3 mt-1.5"></span>
                         <div>
-                          <span className="text-blue-600 font-semibold">Project 1: 30%</span>
+                          <span className="text-blue-600 font-semibold">Project 1 (Midterm): 40%</span>
                           <div className="text-xs text-gray-600 ml-0 mt-1">
-                            • 20% Teacher marking<br/>
-                            • 10% Competition win bonus
+                            • Team-based project<br/>
+                            • Teacher marking + peer voting
                           </div>
                         </div>
                       </li>
                       <li className="flex items-start">
-                        <span className="w-2 h-2 bg-blue-600 rounded-full mr-3 mt-1.5"></span>
+                        <span className="w-2 h-2 bg-purple-600 rounded-full mr-3 mt-1.5"></span>
                         <div>
-                          <span className="text-blue-600 font-semibold">Project 2: 30%</span>
+                          <span className="text-purple-600 font-semibold">Project 2 (Final): 50%</span>
                           <div className="text-xs text-gray-600 ml-0 mt-1">
-                            • 20% Teacher marking<br/>
-                            • 10% Competition win bonus
-                          </div>
-                        </div>
-                      </li>
-                      <li className="flex items-start">
-                        <span className="w-2 h-2 bg-purple-500 rounded-full mr-3 mt-1.5"></span>
-                        <div>
-                          <span className="text-purple-600 font-semibold">Project 3: 30%</span>
-                          <div className="text-xs text-gray-600 ml-0 mt-1">
-                            • 20% Teacher marking<br/>
-                            • 10% Competition win bonus
+                            • Individual project<br/>
+                            • Teacher marking + peer voting
                           </div>
                         </div>
                       </li>
@@ -464,8 +454,8 @@ const ProfilePage: React.FC = () => {
                           <i className="fas fa-sticky-note text-purple-600 text-sm"></i>
                         </div>
                         <div>
-                          <p className="font-medium text-gray-900">{selectedSemester === 'fall_2025' ? 'Project 3' : 'Project Notes'}</p>
-                          <p className="text-xs text-gray-500">{selectedSemester === 'fall_2025' ? '20% teacher + 10% competition' : `${leaderboardData.points_breakdown.project_notes_points / 5} notes written`}</p>
+                          <p className="font-medium text-gray-900">Project Notes</p>
+                          <p className="text-xs text-gray-500">{leaderboardData.points_breakdown.project_notes_points / 5} notes written</p>
                         </div>
                       </div>
                       <span className="text-lg font-bold text-purple-600">

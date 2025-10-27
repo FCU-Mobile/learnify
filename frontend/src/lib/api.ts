@@ -22,13 +22,11 @@ export interface Student {
   has_final_project?: boolean;
   midterm_project_count?: number;
   final_project_count?: number;
-  // Fall semester team-based project status
+  // Fall semester team-based project status (2-project system)
   has_project1?: boolean;
   has_project2?: boolean;
-  has_project3?: boolean;
   project1_team_name?: string;
   project2_team_name?: string;
-  project3_team_name?: string;
 }
 
 export interface CheckInRequest {
@@ -438,7 +436,7 @@ export interface Submission {
   lesson_id?: string;
   file_url?: string;
   files?: SubmissionFile[];
-  project_type?: 'midterm' | 'final' | 'project3';
+  project_type?: 'midterm' | 'final';
   is_public?: boolean;
   created_at: string;
   updated_at: string;
@@ -1715,7 +1713,7 @@ export interface TeamSubmissionStatus {
 // Get team submission status for a specific project
 export const getTeamSubmissionStatus = async (
   studentId: string,
-  projectType: 'midterm' | 'final' | 'project3',
+  projectType: 'midterm' | 'final',
   semesterId: string
 ): Promise<TeamSubmissionStatus | null> => {
   try {
@@ -1741,7 +1739,8 @@ export const getTeamSubmissionStatus = async (
 // Teacher Rating System interfaces
 export interface TeacherRating {
   id: number;
-  team_id: number;
+  team_id: number | null;
+  submission_id?: number | null;
   project_number: number;
   teacher_rating: number;
   teacher_id: string;
@@ -1752,7 +1751,8 @@ export interface TeacherRating {
 
 export interface StudentStarRating {
   id: number;
-  team_id: number;
+  team_id: number | null;
+  submission_id?: number | null;
   project_number: number;
   student_id: string;
   star_rating: number;
@@ -1813,57 +1813,75 @@ export interface VotingCalculationResponse {
 
 // Submit or update teacher rating
 export const submitTeacherRating = async (
-  teamId: number,
+  teamId: number | null,
+  submissionId: number,
   projectNumber: number,
   rating: number,
   teacherId: string,
   semesterId: string
 ): Promise<TeacherRating> => {
-  const response = await api.post<RatingResponse>('/api/ratings/teacher', {
-    team_id: teamId,
+  const payload: any = {
     project_number: projectNumber,
     rating,
     teacher_id: teacherId,
     semester_id: semesterId
-  });
-  
+  };
+
+  // Add either team_id (for Project 1) or submission_id (for Project 2)
+  if (teamId) {
+    payload.team_id = teamId;
+  } else {
+    payload.submission_id = submissionId;
+  }
+
+  const response = await api.post<RatingResponse>('/api/ratings/teacher', payload);
+
   if (!response.data.success) {
     throw new Error(response.data.message || 'Failed to submit teacher rating');
   }
-  
+
   return response.data.data as TeacherRating;
 };
 
 // Submit or update student star rating
 export const submitStudentRating = async (
-  teamId: number,
+  teamId: number | null,
+  submissionId: number,
   projectNumber: number,
-  starRating: number,
-  studentId: string,
+  stars: number,
+  voterId: string,
   semesterId: string
 ): Promise<StudentStarRating> => {
-  const response = await api.post<RatingResponse>('/api/ratings/student', {
-    team_id: teamId,
+  const payload: any = {
     project_number: projectNumber,
-    star_rating: starRating,
-    student_id: studentId,
+    stars,
+    voter_id: voterId,
     semester_id: semesterId
-  });
-  
+  };
+
+  // Add either team_id (for Project 1) or submission_id (for Project 2)
+  if (teamId) {
+    payload.team_id = teamId;
+  } else {
+    payload.submission_id = submissionId;
+  }
+
+  const response = await api.post<RatingResponse>('/api/ratings/student', payload);
+
   if (!response.data.success) {
     throw new Error(response.data.message || 'Failed to submit student rating');
   }
-  
+
   return response.data.data as StudentStarRating;
 };
 
 // Calculate voting scores and rankings
 export const calculateVotingScores = async (
-  projectType: 'midterm' | 'final' | 'project3',
+  projectType: 'midterm' | 'final',
   semesterId: string,
   adminId: string
 ): Promise<VotingResult[]> => {
-  const projectNumberMap = { midterm: 1, final: 2, project3: 3 };
+  const projectNumberMap = { midterm: 1, final: 2 };
   const projectNumber = projectNumberMap[projectType];
   
   const response = await api.post<VotingCalculationResponse>('/api/ratings/calculate-scores', {
@@ -1881,10 +1899,10 @@ export const calculateVotingScores = async (
 
 // Get project ratings for a specific project type and semester
 export const getProjectRatings = async (
-  projectType: 'midterm' | 'final' | 'project3',
+  projectType: 'midterm' | 'final',
   semesterId: string
 ): Promise<TeacherRating[]> => {
-  const projectNumberMap = { midterm: 1, final: 2, project3: 3 };
+  const projectNumberMap = { midterm: 1, final: 2 };
   const projectNumber = projectNumberMap[projectType];
 
   const response = await api.get<{success: boolean; data: {teacher_ratings: TeacherRating[], voting_results: any[], star_ratings: any[]}}>('/api/ratings/results', {
@@ -1901,14 +1919,13 @@ export const getProjectRatings = async (
   return response.data.data.teacher_ratings || [];
 };
 
-// Fall Leaderboard interfaces
+// Fall Leaderboard interfaces (2-project system)
 export interface FallLeaderboardEntry {
   student_id: string;
   student_name: string;
   quiz_points: number;
   project1_rating: number;
   project2_rating: number;
-  project3_rating: number;
   total_score: number;
   rank: number;
 }

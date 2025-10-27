@@ -515,9 +515,6 @@ const AdminPage: React.FC = () => {
                         <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Project 2
                         </th>
-                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Project 3
-                        </th>
                       </>
                     ) : (
                       <>
@@ -603,27 +600,6 @@ const AdminPage: React.FC = () => {
                                   {student.project2_team_name && (
                                     <span className="ml-1 text-xs opacity-75">
                                       ({student.project2_team_name})
-                                    </span>
-                                  )}
-                                </span>
-                              </div>
-                            ) : (
-                              <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
-                                <i className="fas fa-minus mr-1"></i>
-                                Not Submitted
-                              </span>
-                            )}
-                          </td>
-                          {/* Project 3 */}
-                          <td className="px-6 py-4 whitespace-nowrap text-center">
-                            {student.has_project3 ? (
-                              <div className="flex items-center justify-center">
-                                <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800">
-                                  <i className="fas fa-check mr-1"></i>
-                                  Submitted
-                                  {student.project3_team_name && (
-                                    <span className="ml-1 text-xs opacity-75">
-                                      ({student.project3_team_name})
                                     </span>
                                   )}
                                 </span>

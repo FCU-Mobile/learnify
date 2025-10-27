@@ -6,7 +6,7 @@ import type { StudentStarRating } from '../lib/api';
 
 interface StudentRatingProps {
   submissionId: number;
-  projectType: 'midterm' | 'final' | 'project3';
+  projectType: 'midterm' | 'final';
   semesterId: string;
   teamId?: number | null;
   isOwnProject?: boolean; // Prevent students from rating their own projects
@@ -42,13 +42,20 @@ const StudentRating: React.FC<StudentRatingProps> = ({
       // Get star ratings and find if current student has already rated this project
       const response = await fetch(`/api/ratings/results?project_number=${getProjectNumber()}&semester_id=${semesterId}`);
       const data = await response.json();
-      
+
       if (data.success && data.data.star_ratings) {
-        const targetTeamId = teamId || submissionId;
-        const userRating = data.data.star_ratings.find((r: any) => 
-          r.team_id === targetTeamId && r.voter_id === studentId
-        );
-        
+        const userRating = data.data.star_ratings.find((r: any) => {
+          // Check voter_id matches
+          if (r.voter_id !== studentId) return false;
+
+          // For team projects, match by team_id
+          if (teamId) {
+            return r.team_id === teamId;
+          }
+          // For individual projects, match by submission_id
+          return r.submission_id === submissionId;
+        });
+
         if (userRating) {
           setExistingRating(userRating);
           setRating(userRating.stars);
@@ -62,7 +69,7 @@ const StudentRating: React.FC<StudentRatingProps> = ({
   };
 
   const getProjectNumber = () => {
-    const projectNumberMap = { midterm: 1, final: 2, project3: 3 };
+    const projectNumberMap = { midterm: 1, final: 2 };
     return projectNumberMap[projectType];
   };
 
@@ -74,20 +81,29 @@ const StudentRating: React.FC<StudentRatingProps> = ({
       setError(null);
       setSuccess(false);
 
-      const targetTeamId = teamId || submissionId;
+      const payload: any = {
+        project_number: getProjectNumber(),
+        stars: rating,
+        voter_id: studentId,
+        semester_id: semesterId
+      };
+
+      console.log('StudentRating: Submitting with semesterId:', semesterId);
+      console.log('StudentRating: Full payload:', payload);
+
+      // For Project 1 (Midterm), use teamId. For Project 2 (Final), use submissionId
+      if (teamId) {
+        payload.team_id = teamId;
+      } else {
+        payload.submission_id = submissionId;
+      }
 
       const response = await fetch('/api/ratings/student', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          team_id: targetTeamId,
-          project_number: getProjectNumber(),
-          stars: rating,
-          voter_id: studentId,
-          semester_id: semesterId
-        })
+        body: JSON.stringify(payload)
       });
 
       const data = await response.json();

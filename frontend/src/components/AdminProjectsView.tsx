@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Star, Clock, CheckCircle, Users, User, ExternalLink, Github, Calendar, Calculator, AlertCircle, Eye, Vote } from 'lucide-react';
 import { getPublicProjectsForSemester, voteOnBehalfOfStudents, getAllStudentsAsAdmin, type Submission, type BulkVoteResult } from '../lib/api';
+import { useAuth } from '../contexts/AuthContext';
 
 interface AdminProjectsViewProps {
   semesterId: string;
@@ -14,10 +15,11 @@ interface ProjectWithRatingInfo extends Submission {
 }
 
 const AdminProjectsView: React.FC<AdminProjectsViewProps> = ({ semesterId }) => {
+  const { studentId } = useAuth();
   const [projects, setProjects] = useState<ProjectWithRatingInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeFilter, setActiveFilter] = useState<'all' | 'midterm' | 'final' | 'project3'>('all');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'midterm' | 'final'>('all');
   
   const [starRatingsData, setStarRatingsData] = useState<{[key: string]: any[]}>({});
   const [teacherRatingsData, setTeacherRatingsData] = useState<{[key: string]: any[]}>({});
@@ -60,14 +62,11 @@ const AdminProjectsView: React.FC<AdminProjectsViewProps> = ({ semesterId }) => 
         semesterUuidPromise.then(actualSemesterId => 
           fetch(`/api/ratings/results?project_number=2&semester_id=${actualSemesterId}`).then(res => res.json()).catch(() => ({ success: false, data: {} }))
         ),
-        semesterUuidPromise.then(actualSemesterId => 
-          fetch(`/api/ratings/results?project_number=3&semester_id=${actualSemesterId}`).then(res => res.json()).catch(() => ({ success: false, data: {} }))
-        ),
         // Fetch total students (excluding teachers)
         fetch(`/api/leaderboard?semester=fall_2025`).then(res => res.json()).catch(() => ({ success: false, data: { leaderboard: [] } }))
       ];
 
-      const [projectsData, project1Ratings, project2Ratings, project3Ratings, leaderboardData] = await Promise.all(promises);
+      const [projectsData, project1Ratings, project2Ratings, leaderboardData] = await Promise.all(promises);
       
       // Process star ratings
       const starRatings: {[key: string]: any[]} = {};
@@ -76,9 +75,6 @@ const AdminProjectsView: React.FC<AdminProjectsViewProps> = ({ semesterId }) => 
       }
       if (project2Ratings.success && project2Ratings.data.star_ratings) {
         starRatings['final'] = project2Ratings.data.star_ratings;
-      }
-      if (project3Ratings.success && project3Ratings.data.star_ratings) {
-        starRatings['project3'] = project3Ratings.data.star_ratings;
       }
       setStarRatingsData(starRatings);
 
@@ -89,9 +85,6 @@ const AdminProjectsView: React.FC<AdminProjectsViewProps> = ({ semesterId }) => 
       }
       if (project2Ratings.success && project2Ratings.data.teacher_ratings) {
         teacherRatings['final'] = project2Ratings.data.teacher_ratings;
-      }
-      if (project3Ratings.success && project3Ratings.data.teacher_ratings) {
-        teacherRatings['project3'] = project3Ratings.data.teacher_ratings;
       }
       setTeacherRatingsData(teacherRatings);
 
@@ -138,29 +131,33 @@ const AdminProjectsView: React.FC<AdminProjectsViewProps> = ({ semesterId }) => 
 
   const getStarRatingCount = (projectId: number, projectType: string, starRatings: {[key: string]: any[]}, projectsData: Submission[]): number => {
     if (!starRatings[projectType]) return 0;
-    
-    // Find the team ID for this project
+
     const project = projectsData.find(p => p.id === projectId);
-    const targetTeamId = project?.team?.team_id || projectId;
-    
-    
-    const projectRatings = starRatings[projectType].filter((rating: any) => 
-      rating.team_id === targetTeamId
-    );
-    
+    const projectRatings = starRatings[projectType].filter((rating: any) => {
+      // For team projects (Project 1/Midterm), match by team_id
+      if (project?.team?.team_id) {
+        return rating.team_id === project.team.team_id;
+      }
+      // For individual projects (Project 2/Final), match by submission_id
+      return rating.submission_id === projectId;
+    });
+
     return projectRatings.length;
   };
 
   const hasTeacherRating = (projectId: number, projectType: string, teacherRatings: {[key: string]: any[]}, projectsData: Submission[]): boolean => {
     if (!teacherRatings[projectType]) return false;
-    
-    // Find the team ID for this project
+
     const project = projectsData.find(p => p.id === projectId);
-    const targetTeamId = project?.team?.team_id || projectId;
-    
-    return teacherRatings[projectType].some((rating: any) => 
-      rating.team_id === targetTeamId
-    );
+
+    return teacherRatings[projectType].some((rating: any) => {
+      // For team projects (Project 1/Midterm), match by team_id
+      if (project?.team?.team_id) {
+        return rating.team_id === project.team.team_id;
+      }
+      // For individual projects (Project 2/Final), match by submission_id
+      return rating.submission_id === projectId;
+    });
   };
 
   const filteredProjects = projects.filter(project => {
@@ -174,8 +171,6 @@ const AdminProjectsView: React.FC<AdminProjectsViewProps> = ({ semesterId }) => 
         return 'bg-blue-100 text-blue-800';
       case 'final':
         return 'bg-purple-100 text-purple-800';
-      case 'project3':
-        return 'bg-green-100 text-green-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -187,8 +182,6 @@ const AdminProjectsView: React.FC<AdminProjectsViewProps> = ({ semesterId }) => 
         return 'Project 1';
       case 'final':
         return 'Project 2';
-      case 'project3':
-        return 'Project 3';
       default:
         return 'Project';
     }
@@ -276,7 +269,7 @@ const AdminProjectsView: React.FC<AdminProjectsViewProps> = ({ semesterId }) => 
         body: JSON.stringify({
           project_number: projectNumber,
           semester_id: semesterId,
-          admin_id: 'ADMIN_USER' // You might want to pass actual admin ID
+          admin_id: studentId
         })
       });
 
@@ -383,7 +376,7 @@ const AdminProjectsView: React.FC<AdminProjectsViewProps> = ({ semesterId }) => 
   };
 
   const getProjectNumber = (projectType: string): number => {
-    const projectNumberMap = { midterm: 1, final: 2, project3: 3 };
+    const projectNumberMap = { midterm: 1, final: 2 };
     return projectNumberMap[projectType as keyof typeof projectNumberMap] || 1;
   };
 
@@ -432,7 +425,7 @@ const AdminProjectsView: React.FC<AdminProjectsViewProps> = ({ semesterId }) => 
       {/* Filter Tabs */}
       <div className="border-b border-gray-200">
         <nav className="flex space-x-8">
-          {['all', 'midterm', 'final', 'project3'].map((filter) => (
+          {['all', 'midterm', 'final'].map((filter) => (
             <button
               key={filter}
               onClick={() => setActiveFilter(filter as typeof activeFilter)}

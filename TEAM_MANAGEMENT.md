@@ -2,21 +2,27 @@
 
 ## Overview
 
-The team management system enables Fall semester course projects to be completed in teams of 3-4 students. Each team submits one project that all members contribute to and receive equal scoring for.
+The team management system enables Fall semester midterm project (Project 1) to be completed in teams of 3-4 students. Each team submits one project that all members contribute to and receive equal scoring for. The final project (Project 2) is individual-only.
 
 ## Key Features
 
 ### 👥 **Team Formation**
 - **Team Size**: 3-4 students per team (enforced by application logic)
-- **Team Constraints**: Students cannot work with the same teammates across different projects
+- **Team Constraints**: Only applies to Project 1 (Midterm - Team-based)
+- **Project 2 (Final)**: Individual submissions only, no team formation allowed
 - **Administrative Control**: Teams are created and managed by instructors via the Admin dashboard
 - **Semester Isolation**: Teams are specific to each semester and project
 
 ### 🏆 **Team Project Submissions**
-- **One Submission Per Team**: Only one project submission required per team
-- **Shared Editing**: Any team member can create, modify, or update the team's project
-- **Equal Scoring**: All team members automatically receive the same score
-- **Team Attribution**: Submissions clearly show team information and all team members
+- **Project 1 (Midterm - 40%)**: Team-based submission
+  - One submission per team
+  - Shared editing: Any team member can create, modify, or update the team's project
+  - Equal scoring: All team members automatically receive the same score
+  - Team attribution: Submissions clearly show team information and all team members
+- **Project 2 (Final - 50%)**: Individual submission only
+  - Each student submits their own project
+  - No team collaboration or shared scoring
+  - Individual evaluation
 
 ## Database Schema
 
@@ -26,13 +32,13 @@ The team management system enables Fall semester course projects to be completed
 ```sql
 CREATE TABLE project_teams (
     id bigserial PRIMARY KEY,
-    project_number integer NOT NULL CHECK (project_number IN (1, 2, 3)),
+    project_number integer NOT NULL CHECK (project_number IN (1, 2)),
     team_name text NOT NULL,
     semester_id uuid NOT NULL REFERENCES semesters(id) ON DELETE CASCADE,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    
-    CONSTRAINT unique_team_name_per_project_semester 
+
+    CONSTRAINT unique_team_name_per_project_semester
         UNIQUE (project_number, team_name, semester_id)
 );
 ```
@@ -132,8 +138,9 @@ Project submission routes now support team-based workflows:
 
 ### Constraints
 1. **Team Size**: 3-4 members (enforced at application level)
-2. **No Repeat Teammates**: Students cannot work with same teammates across projects
-3. **One Team Per Project**: Students can only be in one team per project per semester
+2. **Project 1 Only**: Teams can only be formed for Project 1 (Midterm)
+3. **Project 2 Individual**: Project 2 (Final) must be individual submissions
+4. **One Team Per Project**: Students can only be in one team per project per semester
 
 ### Shuffling Algorithm
 The system includes an intelligent shuffling algorithm that:
@@ -145,22 +152,30 @@ The system includes an intelligent shuffling algorithm that:
 ## Project Mapping
 
 For Fall 2025 semester:
-- **Project 1 (Midterm)**: `project_number = 2`
-- **Project 2 (Final)**: `project_number = 3`
-- **Project 3**: `project_number = 4` (if applicable)
+- **Project 1 (Midterm - Team)**: `project_number = 1`, `project_type = 'midterm'`, **40% of grade**
+- **Project 2 (Final - Individual)**: `project_number = 2`, `project_type = 'final'`, **50% of grade**
+- **Quiz**: **10% of grade**
 
 ## Usage Workflow
 
 ### For Administrators
-1. **Create Teams**: Use admin dashboard to manually create teams or auto-shuffle
-2. **Manage Teams**: View, edit, or delete teams as needed
-3. **Monitor Submissions**: Track team submissions and ensure proper score distribution
+1. **Create Teams for Project 1**: Use admin dashboard to manually create teams or auto-shuffle (Project 1 only)
+2. **Manage Teams**: View, edit, or delete teams for Project 1
+3. **Monitor Submissions**:
+   - Track team submissions for Project 1 (Midterm)
+   - Track individual submissions for Project 2 (Final)
+   - Ensure proper score distribution
 
 ### For Students
-1. **View Team Info**: See team assignment when submitting projects
-2. **Submit as Team**: Any team member can submit the team's project
-3. **Collaborate**: All team members can modify team submissions
-4. **Receive Equal Scores**: Automatic score sharing across team members
+1. **Project 1 (Midterm - Team)**:
+   - View team assignment
+   - Any team member can submit the team's project
+   - Collaborate: All team members can modify team submissions
+   - Receive equal scores: Automatic score sharing across team members (40% of grade)
+2. **Project 2 (Final - Individual)**:
+   - Submit your own individual project
+   - No team collaboration or shared scoring
+   - Individual evaluation (50% of grade)
 
 ## Security & Validation
 

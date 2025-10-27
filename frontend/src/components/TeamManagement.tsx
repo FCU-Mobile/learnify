@@ -11,9 +11,9 @@ const TeamManagement: React.FC<TeamManagementProps> = ({ semesterId, adminId }) 
 
   return (
     <div className="space-y-6">
-      {/* Project Navigation */}
+      {/* Project Navigation - 2 Project System */}
       <div className="flex space-x-4">
-        {[1, 2, 3].map(projectNum => (
+        {[1, 2].map(projectNum => (
           <button
             key={projectNum}
             onClick={() => setActiveProject(projectNum)}
@@ -23,7 +23,7 @@ const TeamManagement: React.FC<TeamManagementProps> = ({ semesterId, adminId }) 
                 : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
             }`}
           >
-            Project {projectNum}
+            Project {projectNum} {projectNum === 1 ? '(Midterm - Team)' : '(Final - Individual)'}
           </button>
         ))}
       </div>

@@ -14,9 +14,9 @@ const ProjectSubmissionForm: React.FC<ProjectSubmissionFormProps> = ({
 }) => {
   const { selectedSemester, availableSemesters } = useSemester();
   const isFallSemester = selectedSemester === 'fall_2025';
-  
-  // For Fall semester, support 3 projects; for Summer, support 2 projects
-  const [projectType, setProjectType] = useState<'midterm' | 'final' | 'project3'>(
+
+  // Two-project system for both semesters
+  const [projectType, setProjectType] = useState<'midterm' | 'final'>(
     isFallSemester ? 'midterm' : 'midterm'
   );
   const [title, setTitle] = useState('');
@@ -56,10 +56,9 @@ const ProjectSubmissionForm: React.FC<ProjectSubmissionFormProps> = ({
           if (isFallSemester) {
             const projectNumberMap: { [key: string]: number } = {
               'midterm': 1,
-              'final': 2,
-              'project3': 3
+              'final': 2
             };
-            
+
             const projectNumber = projectNumberMap[projectType];
             if (projectNumber) {
               const team = await getStudentTeam(studentId, semesterId, projectNumber);
@@ -205,14 +204,12 @@ const ProjectSubmissionForm: React.FC<ProjectSubmissionFormProps> = ({
     }
   };
 
-  const getProjectTypeIcon = (type: 'midterm' | 'final' | 'project3') => {
+  const getProjectTypeIcon = (type: 'midterm' | 'final') => {
     switch (type) {
       case 'midterm':
         return <BookOpen className="w-5 h-5" />;
       case 'final':
         return <GraduationCap className="w-5 h-5" />;
-      case 'project3':
-        return <Layers className="w-5 h-5" />;
       default:
         return <BookOpen className="w-5 h-5" />;
     }
@@ -228,9 +225,10 @@ const ProjectSubmissionForm: React.FC<ProjectSubmissionFormProps> = ({
     return teamSubmissionStatus?.submission;
   };
 
-  // Check if form should be disabled (Fall semester without team assignment)
+  // Check if form should be disabled (Fall semester Project 1/Midterm without team assignment)
   const isFormDisabled = () => {
-    return isFallSemester && !loadingTeam && !studentTeam;
+    // Only require team for Project 1 (midterm) in Fall semester
+    return isFallSemester && projectType === 'midterm' && !loadingTeam && !studentTeam;
   };
 
   return (
@@ -238,8 +236,8 @@ const ProjectSubmissionForm: React.FC<ProjectSubmissionFormProps> = ({
       <div className="mb-6">
         <h3 className="text-xl font-semibold text-gray-900">Submit Project</h3>
         <p className="text-gray-600 mt-1">
-          {isFallSemester 
-            ? 'Submit your project to share with the class (Fall semester: 3 projects total)'
+          {isFallSemester
+            ? 'Submit your project: Project 1 (Midterm/Team 40%) or Project 2 (Final/Individual 50%)'
             : 'Submit your midterm or final project to share with the class'
           }
         </p>
@@ -251,11 +249,8 @@ const ProjectSubmissionForm: React.FC<ProjectSubmissionFormProps> = ({
           <label className="block text-sm font-medium text-gray-700 mb-3">
             Project Type
           </label>
-          <div className={`grid gap-3 ${isFallSemester ? 'grid-cols-3' : 'grid-cols-2'}`}>
-            {(isFallSemester 
-              ? ['midterm', 'final', 'project3'] as const
-              : ['midterm', 'final'] as const
-            ).map((type) => (
+          <div className="grid gap-3 grid-cols-2">
+            {(['midterm', 'final'] as const).map((type) => (
               <button
                 key={type}
                 type="button"
@@ -268,19 +263,17 @@ const ProjectSubmissionForm: React.FC<ProjectSubmissionFormProps> = ({
               >
                 {getProjectTypeIcon(type)}
                 <span className="font-medium">
-                  {type === 'midterm' 
-                    ? isFallSemester ? 'Project 1' : 'Midterm Project'
-                    : type === 'final'
-                    ? isFallSemester ? 'Project 2' : 'Final Project'
-                    : 'Project 3'}
+                  {type === 'midterm'
+                    ? isFallSemester ? 'Project 1 (Team)' : 'Midterm Project'
+                    : isFallSemester ? 'Project 2 (Individual)' : 'Final Project'}
                 </span>
               </button>
             ))}
           </div>
         </div>
 
-        {/* Team Information (Fall semester only for team projects) */}
-        {isFallSemester && (projectType === 'midterm' || projectType === 'final' || projectType === 'project3') && (
+        {/* Team Information (Fall semester - only Project 1/Midterm is team-based) */}
+        {isFallSemester && projectType === 'midterm' && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <div className="flex items-center space-x-2 mb-2">
               <Users className="w-5 h-5 text-blue-600" />

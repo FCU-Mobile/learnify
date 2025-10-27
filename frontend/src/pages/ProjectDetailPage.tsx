@@ -243,8 +243,6 @@ const ProjectDetailPage: React.FC = () => {
         return <BookOpen className="w-5 h-5" />;
       case 'final':
         return <GraduationCap className="w-5 h-5" />;
-      case 'project3':
-        return <Layers className="w-5 h-5" />;
       default:
         return <BookOpen className="w-5 h-5" />;
     }
@@ -256,8 +254,6 @@ const ProjectDetailPage: React.FC = () => {
         return 'bg-blue-100 text-blue-800';
       case 'final':
         return 'bg-purple-100 text-purple-800';
-      case 'project3':
-        return 'bg-green-100 text-green-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -270,8 +266,6 @@ const ProjectDetailPage: React.FC = () => {
           return 'Project 1';
         case 'final':
           return 'Project 2';
-        case 'project3':
-          return 'Project 3';
         default:
           return 'Project 1';
       }
@@ -429,43 +423,52 @@ const ProjectDetailPage: React.FC = () => {
           )}
 
           {/* Teacher Rating Section - Only for Fall semester projects */}
-          {project.project_type && selectedSemester === 'fall_2025' && (
-            <div className="mb-6 pb-6 border-b border-gray-100">
-              <TeacherRating
-                submissionId={project.id}
-                projectType={project.project_type as 'midterm' | 'final' | 'project3'}
-                semesterId={project.team?.semester_id || ''}
-                teamId={project.team_id}
-              />
-            </div>
-          )}
+          {project.project_type && selectedSemester === 'fall_2025' && (() => {
+            const currentSemester = availableSemesters.find(s => s.code === selectedSemester);
+            return currentSemester ? (
+              <div className="mb-6 pb-6 border-b border-gray-100">
+                <TeacherRating
+                  submissionId={project.id}
+                  projectType={project.project_type as 'midterm' | 'final'}
+                  semesterId={currentSemester.id}
+                  teamId={project.team_id}
+                />
+              </div>
+            ) : null;
+          })()}
 
           {/* Student Peer Rating Section - Only for Fall semester projects and non-admin users */}
-          {project.project_type && selectedSemester === 'fall_2025' && !isAdmin && (
-            <div className="mb-6 pb-6 border-b border-gray-100">
-              <StudentRating
-                submissionId={project.id}
-                projectType={project.project_type as 'midterm' | 'final' | 'project3'}
-                semesterId={project.team?.semester_id || ''}
-                teamId={project.team_id}
-                isOwnProject={project.student_id === studentId || isTeamMember}
-                projectTitle={project.title}
-              />
-            </div>
-          )}
+          {project.project_type && selectedSemester === 'fall_2025' && !isAdmin && (() => {
+            const currentSemester = availableSemesters.find(s => s.code === selectedSemester);
+            return currentSemester ? (
+              <div className="mb-6 pb-6 border-b border-gray-100">
+                <StudentRating
+                  submissionId={project.id}
+                  projectType={project.project_type as 'midterm' | 'final'}
+                  semesterId={currentSemester.id}
+                  teamId={project.team_id}
+                  isOwnProject={project.student_id === studentId || isTeamMember}
+                  projectTitle={project.title}
+                />
+              </div>
+            ) : null;
+          })()}
 
           {/* Star Rating Summary - Show total stars for Fall semester projects */}
-          {project.project_type && selectedSemester === 'fall_2025' && (
-            <div className="mb-6 pb-6 border-b border-gray-100">
-              <StarRatingSummary
-                submissionId={project.id}
-                projectType={project.project_type as 'midterm' | 'final' | 'project3'}
-                semesterId={project.team?.semester_id || ''}
-                teamId={project.team_id}
-                projectTitle={project.title}
-              />
-            </div>
-          )}
+          {project.project_type && selectedSemester === 'fall_2025' && (() => {
+            const currentSemester = availableSemesters.find(s => s.code === selectedSemester);
+            return currentSemester ? (
+              <div className="mb-6 pb-6 border-b border-gray-100">
+                <StarRatingSummary
+                  submissionId={project.id}
+                  projectType={project.project_type as 'midterm' | 'final'}
+                  semesterId={currentSemester.id}
+                  teamId={project.team_id}
+                  projectTitle={project.title}
+                />
+              </div>
+            ) : null;
+          })()}
 
           {/* Description */}
           {project.description && (

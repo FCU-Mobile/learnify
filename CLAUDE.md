@@ -76,7 +76,7 @@ npm run lint            # Code linting
 2. **Smart Learning Quiz System**: Adaptive question selection based on learning patterns
 3. **Gamification**: Daily check-ins, points system, leaderboards
 4. **Submissions**: Screenshot uploads and GitHub repository linking
-5. **Team Management**: Fall semester team-based project submissions with shared scoring
+5. **Team Management**: Fall semester has 2 projects - Project 1 (Midterm 40%, team-based) and Project 2 (Final 50%, individual)
 6. **Admin Dashboard**: Instructor view with class-wide analytics and team management
 7. **Awards System**: Instructor-awarded badges and recognition
 
@@ -93,12 +93,17 @@ Intelligent quiz system that ensures students master SwiftUI fundamentals throug
 ### 👥 Team Management System (Fall Semester)
 **📖 [Complete Documentation](TEAM_MANAGEMENT.md)**
 
-Team-based project system for Fall semester courses with:
-- **Team Formation**: 3-4 member teams with constraint checking
-- **Shared Submissions**: Any team member can submit/edit team projects
-- **Equal Scoring**: Automatic score propagation to all team members
-- **Administrative Control**: Team creation and management via admin dashboard
-- **Smart Shuffling**: Algorithm prevents repeat teammates across projects
+**Grading Breakdown: Quiz 10%, Midterm 40%, Final 50%**
+
+Team-based project system for Fall semester Project 1 (Midterm) only:
+- **Project 1 (Midterm - 40%)**: Team-based with 3-4 member teams
+  - Shared submissions: Any team member can submit/edit team project
+  - Equal scoring: Automatic score propagation to all team members
+  - Administrative control: Team creation and management via admin dashboard
+- **Project 2 (Final - 50%)**: Individual submissions only
+  - Each student submits their own project
+  - No team collaboration or shared scoring
+- **Quiz (10%)**: Individual assessment with adaptive question selection
 
 ## Data Models
 
@@ -109,7 +114,7 @@ Core entities include:
 - `quizzes/questions/quiz_attempts` - Assessment system
 - `awards` - Recognition and badges
 - `projects` - Information about student projects
-- `project_teams` - Team management for Fall semester projects
+- `project_teams` - Team management for Fall semester Project 1 (Midterm) only
 - `team_members` - Student-team relationships with constraints
 - `project_submissions` - Links projects to students
 - `project_votes` - Tracks student votes on projects
