@@ -1,5 +1,5 @@
--- Fix Fall leaderboard to support individual Project 2 ratings
--- Project 1 uses team_id, Project 2 uses submission_id
+-- Fix Project 2 scoring to include voting scores (peer ratings)
+-- Project 2 should be: teacher_rating (0-40%) + voting_score (0-10%) = 0-50%
 
 CREATE OR REPLACE FUNCTION get_fall_semester_leaderboard()
 RETURNS TABLE(
@@ -93,4 +93,10 @@ BEGIN
 END
 $$;
 
-COMMENT ON FUNCTION get_fall_semester_leaderboard() IS 'Fall semester leaderboard: Project 1 (40%, team-based), Project 2 (50%, individual), Quiz (10%). Excludes admin accounts.';
+COMMENT ON FUNCTION get_fall_semester_leaderboard() IS 'Fall semester leaderboard: Project 1 (40%, team-based), Project 2 (50% = 40% teacher + 10% voting, individual), Quiz (10%). Excludes admin accounts.';
+
+DO $$
+BEGIN
+    RAISE NOTICE '✅ Fall leaderboard function updated to include Project 2 voting scores';
+    RAISE NOTICE 'Project 2 now correctly calculates: teacher_rating (0-40%%) + voting_score (0-10%%) = 0-50%%';
+END $$;

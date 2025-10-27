@@ -88,6 +88,9 @@ const StudentRating: React.FC<StudentRatingProps> = ({
         semester_id: semesterId
       };
 
+      console.log('StudentRating: Submitting with semesterId:', semesterId);
+      console.log('StudentRating: Full payload:', payload);
+
       // For Project 1 (Midterm), use teamId. For Project 2 (Final), use submissionId
       if (teamId) {
         payload.team_id = teamId;

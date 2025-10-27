@@ -46,6 +46,7 @@ export const SemesterProvider: React.FC<SemesterProviderProps> = ({ children }) 
 
         // Load all available semesters
         const semestersResponse = await getSemesters();
+        console.log('SemesterContext: Loaded semesters:', semestersResponse.data.semesters);
         setAvailableSemesters(semestersResponse.data.semesters);
 
         // Validate that the stored selected semester is still available

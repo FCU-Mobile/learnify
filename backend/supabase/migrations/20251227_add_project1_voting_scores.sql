@@ -1,5 +1,5 @@
--- Fix Fall leaderboard to support individual Project 2 ratings
--- Project 1 uses team_id, Project 2 uses submission_id
+-- Add voting scores to Project 1 (team-based) leaderboard calculation
+-- Project 1 should be: teacher_rating (0-30%) + voting_score (0-10%) = 0-40%
 
 CREATE OR REPLACE FUNCTION get_fall_semester_leaderboard()
 RETURNS TABLE(
@@ -38,14 +38,22 @@ BEGIN
             ), 0) as quiz_points,
 
             -- Project 1 rating (40% - team-based, uses team_id)
+            -- Includes teacher rating (0-30%) + voting score (0-10%)
             COALESCE((
-                SELECT pr.teacher_rating
-                FROM project_ratings pr
-                JOIN project_teams pt ON pt.id = pr.team_id
+                SELECT
+                    COALESCE(pr.teacher_rating, 0) +
+                    COALESCE(pvr.voting_score, 0)
+                FROM project_teams pt
                 JOIN team_members tm ON tm.team_id = pt.id
+                LEFT JOIN project_ratings pr ON pr.team_id = pt.id
+                    AND pr.project_number = 1
+                    AND pr.semester_id = fall_semester_id
+                LEFT JOIN project_voting_results pvr ON pvr.team_id = pt.id
+                    AND pvr.project_number = 1
+                    AND pvr.semester_id = fall_semester_id
                 WHERE tm.student_id = s.student_id
-                AND pr.project_number = 1
-                AND pr.semester_id = fall_semester_id
+                AND pt.semester_id = fall_semester_id
+                LIMIT 1
             ), 0) as project1_rating,
 
             -- Project 2 rating (50% - individual, uses submission_id)
@@ -93,4 +101,11 @@ BEGIN
 END
 $$;
 
-COMMENT ON FUNCTION get_fall_semester_leaderboard() IS 'Fall semester leaderboard: Project 1 (40%, team-based), Project 2 (50%, individual), Quiz (10%). Excludes admin accounts.';
+COMMENT ON FUNCTION get_fall_semester_leaderboard() IS 'Fall semester leaderboard: Project 1 (40% = 30% teacher + 10% voting, team-based), Project 2 (50% = 40% teacher + 10% voting, individual), Quiz (10%). Excludes admin accounts.';
+
+DO $$
+BEGIN
+    RAISE NOTICE '✅ Fall leaderboard function updated to include Project 1 voting scores';
+    RAISE NOTICE 'Project 1 now correctly calculates: teacher_rating (0-30%%) + voting_score (0-10%%) = 0-40%%';
+    RAISE NOTICE 'Project 2 correctly calculates: teacher_rating (0-40%%) + voting_score (0-10%%) = 0-50%%';
+END $$;

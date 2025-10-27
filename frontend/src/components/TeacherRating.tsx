@@ -58,8 +58,10 @@ const TeacherRating: React.FC<TeacherRatingProps> = ({
   };
 
   // Get max score based on project type
+  // Project 1: 30% teacher rating (+ 10% peer voting = 40% total)
+  // Project 2: 40% teacher rating (+ 10% peer voting = 50% total)
   const getMaxScore = () => {
-    return projectType === 'midterm' ? 40 : 50; // Project 1: 40%, Project 2: 50%
+    return projectType === 'midterm' ? 30 : 40;
   };
 
   const maxScore = getMaxScore();
@@ -111,7 +113,7 @@ const TeacherRating: React.FC<TeacherRatingProps> = ({
       <div className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            {projectType === 'midterm' ? 'Project 1 Score (0-40)' : 'Project 2 Score (0-50)'}
+            {projectType === 'midterm' ? 'Project 1 Teacher Rating (0-30)' : 'Project 2 Teacher Rating (0-40)'}
           </label>
           <div className="flex items-center space-x-4">
             <input

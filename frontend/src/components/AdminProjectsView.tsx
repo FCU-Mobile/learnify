@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Star, Clock, CheckCircle, Users, User, ExternalLink, Github, Calendar, Calculator, AlertCircle, Eye, Vote } from 'lucide-react';
 import { getPublicProjectsForSemester, voteOnBehalfOfStudents, getAllStudentsAsAdmin, type Submission, type BulkVoteResult } from '../lib/api';
+import { useAuth } from '../contexts/AuthContext';
 
 interface AdminProjectsViewProps {
   semesterId: string;
@@ -14,6 +15,7 @@ interface ProjectWithRatingInfo extends Submission {
 }
 
 const AdminProjectsView: React.FC<AdminProjectsViewProps> = ({ semesterId }) => {
+  const { studentId } = useAuth();
   const [projects, setProjects] = useState<ProjectWithRatingInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -267,7 +269,7 @@ const AdminProjectsView: React.FC<AdminProjectsViewProps> = ({ semesterId }) => 
         body: JSON.stringify({
           project_number: projectNumber,
           semester_id: semesterId,
-          admin_id: 'ADMIN_USER' // You might want to pass actual admin ID
+          admin_id: studentId
         })
       });
 
