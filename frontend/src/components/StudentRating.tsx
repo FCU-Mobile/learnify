@@ -3,6 +3,7 @@ import { Star, Users, Send, AlertCircle, CheckCircle } from 'lucide-react';
 import { submitStudentRating, getProjectRatings } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import type { StudentStarRating } from '../lib/api';
+import api from '../lib/api';
 
 interface StudentRatingProps {
   submissionId: number;
@@ -40,11 +41,18 @@ const StudentRating: React.FC<StudentRatingProps> = ({
     try {
       setLoading(true);
       // Get star ratings and find if current student has already rated this project
-      const response = await fetch(`/api/ratings/results?project_number=${getProjectNumber()}&semester_id=${semesterId}`);
-      const data = await response.json();
+      const projectNumberMap = { midterm: 1, final: 2 };
+      const projectNumber = projectNumberMap[projectType];
 
-      if (data.success && data.data.star_ratings) {
-        const userRating = data.data.star_ratings.find((r: any) => {
+      const response = await api.get('/api/ratings/results', {
+        params: {
+          project_number: projectNumber,
+          semester_id: semesterId
+        }
+      });
+
+      if (response.data.success && response.data.data.star_ratings) {
+        const userRating = response.data.data.star_ratings.find((r: any) => {
           // Check voter_id matches
           if (r.voter_id !== studentId) return false;
 
@@ -81,41 +89,24 @@ const StudentRating: React.FC<StudentRatingProps> = ({
       setError(null);
       setSuccess(false);
 
-      const payload: any = {
-        project_number: getProjectNumber(),
-        stars: rating,
-        voter_id: studentId,
-        semester_id: semesterId
-      };
-
       console.log('StudentRating: Submitting with semesterId:', semesterId);
-      console.log('StudentRating: Full payload:', payload);
+      console.log('StudentRating: project_number:', getProjectNumber(), 'stars:', rating, 'voterId:', studentId);
 
-      // For Project 1 (Midterm), use teamId. For Project 2 (Final), use submissionId
-      if (teamId) {
-        payload.team_id = teamId;
-      } else {
-        payload.submission_id = submissionId;
-      }
+      // Use the axios-based API function with proper baseURL handling
+      const ratingData = await submitStudentRating(
+        teamId || null,
+        submissionId,
+        getProjectNumber(),
+        rating,
+        studentId,
+        semesterId
+      );
 
-      const response = await fetch('/api/ratings/student', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload)
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setSuccess(true);
-        setExistingRating(data.data);
-        setTimeout(() => setSuccess(false), 3000);
-      } else {
-        throw new Error(data.message || 'Failed to submit rating');
-      }
+      setSuccess(true);
+      setExistingRating(ratingData);
+      setTimeout(() => setSuccess(false), 3000);
     } catch (err: any) {
+      console.error('Rating submission error:', err);
       if (err.message.includes('ALREADY_VOTED')) {
         setError('You have already rated this project');
       } else {
