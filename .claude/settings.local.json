@@ -17,7 +17,8 @@
       "Bash(docker:*)",
       "Bash(/dev/null)",
       "Bash(npm run supabase:start:*)",
-      "Bash(npm run supabase:stop:*)"
+      "Bash(npm run supabase:stop:*)",
+      "Bash(grep:*)"
     ],
     "deny": [
       "Bash(rm:*)"
