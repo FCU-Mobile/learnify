@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { 
-  getRandomQuizQuestions, 
-  submitQuizAnswer, 
+import { useSemester } from '../contexts/SemesterContext'; // NEW: Import semester context
+import {
+  getRandomQuizQuestions,
+  submitQuizAnswer,
   getStudentQuizScores,
   getQuestionStats
 } from '../lib/api';
@@ -21,6 +22,7 @@ interface QuizAttempt {
 
 const QuizPage: React.FC = () => {
   const { studentId } = useAuth();
+  const { selectedSemester, availableSemesters } = useSemester(); // NEW: Get semester context
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<'A' | 'B' | 'C' | 'D' | null>(null);
@@ -41,14 +43,21 @@ const QuizPage: React.FC = () => {
   const [questionStats, setQuestionStats] = useState<QuestionStats[]>([]);
   const [totalQuestions, setTotalQuestions] = useState(0);
 
+  // Helper function to get semester ID from selected semester code
+  const getSemesterId = (): string | null => {
+    if (!selectedSemester) return null;
+    const semester = availableSemesters.find(s => s.code === selectedSemester);
+    return semester?.id || null;
+  };
+
   // Load student stats, question stats, and questions
   useEffect(() => {
-    if (studentId) {
+    if (studentId && selectedSemester) { // NEW: Also require selectedSemester
       loadStudentStats();
       loadQuestions();
     }
-    loadQuestionStats(); // Load question stats regardless of student ID
-  }, [studentId]);
+    loadQuestionStats();
+  }, [studentId, selectedSemester]); // NEW: Also reload when semester changes
 
   // Only reload questions when starting quiz (not when changing settings)
   const handleStartQuiz = () => {
@@ -88,7 +97,8 @@ const QuizPage: React.FC = () => {
 
   const loadQuestionStats = async () => {
     try {
-      const stats = await getQuestionStats();
+      const semesterId = getSemesterId();
+      const stats = await getQuestionStats(semesterId || undefined); // NEW: Pass semester_id
       setQuestionStats(stats.difficulty_breakdown);
       setTotalQuestions(stats.total_questions);
     } catch (error) {
@@ -96,18 +106,32 @@ const QuizPage: React.FC = () => {
       // Fallback to actual database values if API fails
       setQuestionStats([
         { difficulty_level: 1, difficulty_name: 'Beginner', question_count: 5 },
-        { difficulty_level: 2, difficulty_name: 'Intermediate', question_count: 8 },
-        { difficulty_level: 3, difficulty_name: 'Advanced', question_count: 7 }
+        { difficulty_level: 2, difficulty_name: 'Intermediate', question_count: 10 },
+        { difficulty_level: 3, difficulty_name: 'Advanced', question_count: 10 }
       ]);
-      setTotalQuestions(20);
+      setTotalQuestions(25); // Updated fallback for Fall semester (25 questions)
     }
   };
 
   const loadQuestions = async () => {
     try {
       setIsLoading(true);
-      // Use smart learning algorithm by passing student_id
-      const questionsData = await getRandomQuizQuestions(5, selectedDifficulty, studentId || undefined, selectedQuestionType); 
+      const semesterId = getSemesterId();
+
+      if (!semesterId) {
+        setError('Semester not selected. Please select a semester first.');
+        setIsLoading(false);
+        return;
+      }
+
+      // Use smart learning algorithm by passing student_id and semester_id
+      const questionsData = await getRandomQuizQuestions(
+        5,
+        selectedDifficulty,
+        studentId || undefined,
+        selectedQuestionType,
+        semesterId // NEW: Pass semester_id
+      );
       setQuestions(questionsData);
       setIsLoading(false);
     } catch (error) {
@@ -132,13 +156,21 @@ const QuizPage: React.FC = () => {
     setIsSubmitting(true);
     const currentQuestion = questions[currentQuestionIndex];
     const attemptTimeSeconds = Math.floor((Date.now() - questionStartTime) / 1000);
+    const semesterId = getSemesterId();
+
+    if (!semesterId) {
+      setError('Semester not selected. Cannot submit answer.');
+      setIsSubmitting(false);
+      return;
+    }
 
     try {
       const result = await submitQuizAnswer({
         student_id: studentId,
         question_id: currentQuestion.id,
         selected_answer: selectedAnswer,
-        attempt_time_seconds: attemptTimeSeconds
+        attempt_time_seconds: attemptTimeSeconds,
+        semester_id: semesterId // NEW: Pass semester_id
       });
 
       const attempt: QuizAttempt = {

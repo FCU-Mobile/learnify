@@ -70,6 +70,7 @@ interface QuizAttemptRequest {
   question_id: number;
   selected_answer: 'A' | 'B' | 'C' | 'D';
   attempt_time_seconds?: number;
+  semester_id: string; // Required: ensure attempts are semester-specific
 }
 
 /**
@@ -81,13 +82,24 @@ router.get('/questions/random', async (req: Request, res: Response) => {
     const count = Math.min(parseInt(req.query.count as string) || 5, 20); // Max 20 questions per request
     const difficulty = req.query.difficulty ? parseInt(req.query.difficulty as string) : undefined;
     const studentId = req.query.student_id as string;
+    const semesterId = req.query.semester_id as string; // NEW: Required semester context
     const questionType = req.query.question_type as string; // 'random', 'wrong_only', or undefined (smart)
 
-    // Build query for all active questions
+    // Validate semester_id is provided
+    if (!semesterId) {
+      return res.status(400).json({
+        success: false,
+        error: 'MISSING_SEMESTER_ID',
+        message: 'semester_id query parameter is required'
+      });
+    }
+
+    // Build query for all active questions filtered by semester
     let query = supabase
       .from('quiz_questions')
       .select('*')
-      .eq('is_active', true);
+      .eq('is_active', true)
+      .eq('semester_id', semesterId); // NEW: Filter by semester
 
     if (difficulty && difficulty >= 1 && difficulty <= 3) {
       query = query.eq('difficulty_level', difficulty);
@@ -118,20 +130,22 @@ router.get('/questions/random', async (req: Request, res: Response) => {
 
     // If student_id is provided, implement question selection based on type
     if (studentId) {
-      // Get student's incorrect answers (questions they got wrong)
+      // Get student's incorrect answers (questions they got wrong) - filtered by semester
       const { data: incorrectAttempts, error: incorrectError } = await supabase
         .from('student_quiz_attempts')
         .select('question_id, is_correct, created_at')
         .eq('student_id', studentId)
         .eq('is_correct', false)
+        .eq('semester_id', semesterId) // NEW: Filter by semester
         .order('created_at', { ascending: false });
 
-      // Get student's correct answers to avoid re-asking recently mastered questions
+      // Get student's correct answers to avoid re-asking recently mastered questions - filtered by semester
       const { data: correctAttempts, error: correctError } = await supabase
         .from('student_quiz_attempts')
         .select('question_id, is_correct, created_at')
         .eq('student_id', studentId)
         .eq('is_correct', true)
+        .eq('semester_id', semesterId) // NEW: Filter by semester
         .order('created_at', { ascending: false });
 
       if (incorrectError || correctError) {
@@ -270,19 +284,20 @@ router.get('/questions/random', async (req: Request, res: Response) => {
  */
 router.post('/submit-answer', async (req: Request, res: Response) => {
   try {
-    const { 
-      student_id, 
-      full_name, 
-      question_id, 
-      selected_answer, 
-      attempt_time_seconds 
+    const {
+      student_id,
+      full_name,
+      question_id,
+      selected_answer,
+      attempt_time_seconds,
+      semester_id // NEW: Required semester context
     }: QuizAttemptRequest = req.body;
 
-    if (!student_id || !question_id || !selected_answer) {
+    if (!student_id || !question_id || !selected_answer || !semester_id) {
       return res.status(400).json({
         success: false,
         error: 'MISSING_REQUIRED_FIELDS',
-        message: 'student_id, question_id, and selected_answer are required'
+        message: 'student_id, question_id, selected_answer, and semester_id are required'
       });
     }
 
@@ -319,12 +334,13 @@ router.post('/submit-answer', async (req: Request, res: Response) => {
 
     const studentUuid = existingStudent.id;
 
-    // Get the question to check the correct answer
+    // Get the question to check the correct answer - validate it belongs to the specified semester
     const { data: question, error: questionError } = await supabase
       .from('quiz_questions')
       .select('id, correct_answer, explanation')
       .eq('id', question_id)
       .eq('is_active', true)
+      .eq('semester_id', semester_id) // NEW: Validate semester match
       .single();
 
     if (questionError || !question) {
@@ -366,7 +382,8 @@ router.post('/submit-answer', async (req: Request, res: Response) => {
         selected_answer,
         is_correct: isCorrect,
         points_earned: pointsEarned,
-        attempt_time_seconds
+        attempt_time_seconds,
+        semester_id // NEW: Include semester context
       })
       .select('*')
       .single();
@@ -417,6 +434,7 @@ router.get('/student/:student_id/scores', async (req: Request, res: Response) =>
     const { student_id } = req.params;
     const limit = Math.min(parseInt(req.query.limit as string) || 10, 50);
     const offset = Math.max(parseInt(req.query.offset as string) || 0, 0);
+    const semesterId = req.query.semester_id as string; // NEW: Optional semester filter
 
     if (!student_id) {
       return res.status(400).json({
@@ -441,18 +459,29 @@ router.get('/student/:student_id/scores', async (req: Request, res: Response) =>
       });
     }
 
-    // Get quiz scores
-    const { data: quizScores, error: scoresError } = await supabase
+    // Get quiz scores - optionally filtered by semester
+    let scoresQuery = supabase
       .from('student_quiz_scores')
       .select('*')
-      .eq('student_id', student_id)
-      .single();
+      .eq('student_id', student_id);
 
-    // Get recent attempts
-    const { data: recentAttempts, error: attemptsError } = await supabase
+    if (semesterId) {
+      scoresQuery = scoresQuery.eq('semester_id', semesterId); // NEW: Filter by semester if provided
+    }
+
+    const { data: quizScores, error: scoresError } = await scoresQuery.single();
+
+    // Get recent attempts - optionally filtered by semester
+    let attemptsQuery = supabase
       .from('student_quiz_attempts')
       .select('*')
-      .eq('student_id', student_id)
+      .eq('student_id', student_id);
+
+    if (semesterId) {
+      attemptsQuery = attemptsQuery.eq('semester_id', semesterId); // NEW: Filter by semester if provided
+    }
+
+    const { data: recentAttempts, error: attemptsError } = await attemptsQuery
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -465,11 +494,17 @@ router.get('/student/:student_id/scores', async (req: Request, res: Response) =>
       });
     }
 
-    // Get total attempts count
-    const { count: totalAttempts, error: countError } = await supabase
+    // Get total attempts count - optionally filtered by semester
+    let countQuery = supabase
       .from('student_quiz_attempts')
       .select('*', { count: 'exact', head: true })
       .eq('student_id', student_id);
+
+    if (semesterId) {
+      countQuery = countQuery.eq('semester_id', semesterId); // NEW: Filter by semester if provided
+    }
+
+    const { count: totalAttempts, error: countError } = await countQuery;
 
     if (countError) {
       console.error('Attempts count error:', countError);
@@ -758,15 +793,23 @@ router.get('/questions/all/:student_id', async (req: Request, res: Response) => 
 
 /**
  * GET /api/quiz/questions/stats
- * Get question statistics by difficulty level
+ * Get question statistics by difficulty level (filtered by semester)
  */
 router.get('/questions/stats', async (req: Request, res: Response) => {
   try {
-    // Get total count of active questions
-    const { count: totalQuestions, error: totalError } = await supabase
+    const semesterId = req.query.semester_id as string; // NEW: Optional semester filter
+
+    // Get total count of active questions - optionally filtered by semester
+    let totalQuery = supabase
       .from('quiz_questions')
       .select('*', { count: 'exact', head: true })
       .eq('is_active', true);
+
+    if (semesterId) {
+      totalQuery = totalQuery.eq('semester_id', semesterId); // NEW: Filter by semester if provided
+    }
+
+    const { count: totalQuestions, error: totalError } = await totalQuery;
 
     if (totalError) {
       console.error('Total questions count error:', totalError);
@@ -777,14 +820,20 @@ router.get('/questions/stats', async (req: Request, res: Response) => {
       });
     }
 
-    // Get count by difficulty level
+    // Get count by difficulty level - optionally filtered by semester
     const difficultyStats = [];
     for (let difficulty = 1; difficulty <= 3; difficulty++) {
-      const { count, error } = await supabase
+      let diffQuery = supabase
         .from('quiz_questions')
         .select('*', { count: 'exact', head: true })
         .eq('is_active', true)
         .eq('difficulty_level', difficulty);
+
+      if (semesterId) {
+        diffQuery = diffQuery.eq('semester_id', semesterId); // NEW: Filter by semester if provided
+      }
+
+      const { count, error } = await diffQuery;
 
       if (error) {
         console.error(`Difficulty ${difficulty} count error:`, error);

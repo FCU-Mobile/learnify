@@ -684,6 +684,7 @@ export interface QuizSubmissionRequest {
   question_id: number;
   selected_answer: 'A' | 'B' | 'C' | 'D';
   attempt_time_seconds?: number;
+  semester_id: string; // NEW: Required semester context
 }
 
 export interface QuizSubmissionResponse {
@@ -750,16 +751,18 @@ export interface QuestionStatsResponse {
 
 // Quiz API functions
 export const getRandomQuizQuestions = async (
-  count: number = 5, 
-  difficulty?: number, 
-  studentId?: string, 
-  questionType?: string
+  count: number = 5,
+  difficulty?: number,
+  studentId?: string,
+  questionType?: string,
+  semesterId?: string // NEW: Required semester context
 ): Promise<QuizQuestion[]> => {
   const params: any = { count };
   if (difficulty) params.difficulty = difficulty;
   if (studentId) params.student_id = studentId;
   if (questionType) params.question_type = questionType;
-  
+  if (semesterId) params.semester_id = semesterId; // NEW: Include semester
+
   const response = await api.get<RandomQuestionsResponse>('/api/quiz/questions/random', { params });
   if (!response.data.success) {
     throw new Error('Failed to fetch quiz questions');
@@ -801,8 +804,11 @@ export const getStudentQuizAttempts = async (
   return response.data.data;
 };
 
-export const getQuestionStats = async (): Promise<QuestionStatsResponse['data']> => {
-  const response = await api.get<QuestionStatsResponse>('/api/quiz/questions/stats');
+export const getQuestionStats = async (semesterId?: string): Promise<QuestionStatsResponse['data']> => {
+  const params: any = {};
+  if (semesterId) params.semester_id = semesterId; // NEW: Pass semester_id if provided
+
+  const response = await api.get<QuestionStatsResponse>('/api/quiz/questions/stats', { params });
   if (!response.data.success) {
     throw new Error('Failed to fetch question statistics');
   }

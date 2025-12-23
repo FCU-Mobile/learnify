@@ -120,18 +120,16 @@ const Navigation: React.FC = () => {
                 Teams
               </Link>
             )}
-            {!isFallSemester && (
-              <Link 
-                to="/quiz" 
-                className={`font-medium pb-1 transition-colors ${
-                  isActive('/quiz') 
-                    ? 'text-blue-600 border-b-2 border-blue-600' 
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Quiz
-              </Link>
-            )}
+            <Link
+              to="/quiz"
+              className={`font-medium pb-1 transition-colors ${
+                isActive('/quiz')
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Quiz
+            </Link>
             {!isFallSemester && (
               <Link 
                 to="/feedback" 
