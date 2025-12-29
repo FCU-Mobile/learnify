@@ -65,8 +65,12 @@ const AdminProjectsView: React.FC<AdminProjectsViewProps> = ({ semesterId }) => 
         getLeaderboardForSemester('fall_2025').then(leaderboard => ({ success: true, data: { leaderboard } })).catch(() => ({ success: false, data: { leaderboard: [] } }))
       ];
 
-      const [projectsData, project1Ratings, project2Ratings, leaderboardData] = await Promise.all(promises);
-      
+      const results = await Promise.all(promises);
+      const projectsData = results[0] as Submission[];
+      const project1Ratings = results[1] as {success: boolean; data: any};
+      const project2Ratings = results[2] as {success: boolean; data: any};
+      const leaderboardData = results[3] as {success: boolean; data: {leaderboard: any[]}};
+
       // Process star ratings
       const starRatings: {[key: string]: any[]} = {};
       if (project1Ratings.success && project1Ratings.data.star_ratings) {
@@ -89,12 +93,12 @@ const AdminProjectsView: React.FC<AdminProjectsViewProps> = ({ semesterId }) => 
 
       // Set student count from leaderboard (excluding teachers)
       if (leaderboardData.success && leaderboardData.data.leaderboard) {
-        const studentsOnly = leaderboardData.data.leaderboard.filter((student: any) => 
+        const studentsOnly = leaderboardData.data.leaderboard.filter((student: any) =>
           !student.student_id?.startsWith('T')
         );
         setTotalStudents(studentsOnly.length);
       }
-      
+
       // Combine projects with rating info
       const projectsWithRatingInfo: ProjectWithRatingInfo[] = projectsData.map((project: Submission) => {
         // Calculate eligible voters (total students minus team members who cannot vote for themselves)

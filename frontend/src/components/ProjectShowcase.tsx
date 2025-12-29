@@ -62,15 +62,19 @@ const ProjectShowcase: React.FC<ProjectShowcaseProps> = ({ filterType = 'all' })
       }
 
       const results = await Promise.all(promises);
-      const [projectsData, midtermVotesData, finalVotesData, ...ratingResults] = results;
-      
-      // projectsData, midtermVotesData, finalVotesData are arrays from API functions
-      setProjects(projectsData as Submission[]);
-      setMidtermVotes(midtermVotesData as ProjectWithVotes[]);
-      setFinalVotes(finalVotesData as ProjectWithVotes[]);
+      const projectsData = results[0] as Submission[];
+      const midtermVotesData = results[1] as ProjectWithVotes[];
+      const finalVotesData = results[2] as ProjectWithVotes[];
 
-      if (selectedSemester === 'fall_2025' && ratingResults.length >= 3) {
-        const [project1Ratings, project2Ratings, leaderboardData] = ratingResults;
+      setProjects(projectsData);
+      setMidtermVotes(midtermVotesData);
+      setFinalVotes(finalVotesData);
+
+      if (selectedSemester === 'fall_2025' && results.length >= 7) {
+        const project1Ratings = results[3] as {success: boolean; data: any};
+        const project2Ratings = results[4] as {success: boolean; data: any};
+        const project3Ratings = results[5] as {success: boolean; data: any};
+        const leaderboardData = results[6] as {success: boolean; data: {leaderboard: any[]}};
 
         // Process star ratings (2-project system)
         const starRatings: {[key: string]: any[]} = {};
