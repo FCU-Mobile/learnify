@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Star, Clock, CheckCircle, Users, User, ExternalLink, Github, Calendar, Calculator, AlertCircle, Eye, Vote } from 'lucide-react';
-import { getPublicProjectsForSemester, voteOnBehalfOfStudents, getAllStudentsAsAdmin, type Submission, type BulkVoteResult } from '../lib/api';
+import { getPublicProjectsForSemester, voteOnBehalfOfStudents, getAllStudentsAsAdmin, calculateVotingScores, getSemesters, getLeaderboardForSemester, getProjectRatingsResults, type Submission, type BulkVoteResult } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 
 interface AdminProjectsViewProps {
@@ -47,8 +47,7 @@ const AdminProjectsView: React.FC<AdminProjectsViewProps> = ({ semesterId }) => 
       setError(null);
       
       // First get the actual semester UUID
-      const semesterUuidPromise = fetch('/api/semesters').then(async res => {
-        const data = await res.json();
+      const semesterUuidPromise = getSemesters().then(data => {
         const fallSemester = data.data?.semesters?.find((s: any) => s.code === 'fall_2025');
         return fallSemester?.id || semesterId; // fallback to passed semesterId if UUID not found
       }).catch(() => semesterId);
@@ -56,14 +55,14 @@ const AdminProjectsView: React.FC<AdminProjectsViewProps> = ({ semesterId }) => 
       const promises = [
         getPublicProjectsForSemester('fall_2025'),
         // Fetch star ratings for all project types
-        semesterUuidPromise.then(actualSemesterId => 
-          fetch(`/api/ratings/results?project_number=1&semester_id=${actualSemesterId}`).then(res => res.json()).catch(() => ({ success: false, data: {} }))
+        semesterUuidPromise.then(actualSemesterId =>
+          getProjectRatingsResults(1, actualSemesterId).catch(() => ({ success: false, data: {} }))
         ),
-        semesterUuidPromise.then(actualSemesterId => 
-          fetch(`/api/ratings/results?project_number=2&semester_id=${actualSemesterId}`).then(res => res.json()).catch(() => ({ success: false, data: {} }))
+        semesterUuidPromise.then(actualSemesterId =>
+          getProjectRatingsResults(2, actualSemesterId).catch(() => ({ success: false, data: {} }))
         ),
         // Fetch total students (excluding teachers)
-        fetch(`/api/leaderboard?semester=fall_2025`).then(res => res.json()).catch(() => ({ success: false, data: { leaderboard: [] } }))
+        getLeaderboardForSemester('fall_2025').then(leaderboard => ({ success: true, data: { leaderboard } })).catch(() => ({ success: false, data: { leaderboard: [] } }))
       ];
 
       const [projectsData, project1Ratings, project2Ratings, leaderboardData] = await Promise.all(promises);
@@ -252,40 +251,26 @@ const AdminProjectsView: React.FC<AdminProjectsViewProps> = ({ semesterId }) => 
 
   // Calculate marks for a specific project type
   const calculateMarks = async (projectType: string) => {
-    if (!semesterId || calculatingProject) return;
+    if (!semesterId || calculatingProject || !studentId) return;
 
-    const projectNumber = getProjectNumber(projectType);
     const calculationKey = `${projectType}_${semesterId}`;
-    
+
     try {
       setCalculatingProject(calculationKey);
       setCalculationError(null);
 
-      const response = await fetch('/api/ratings/calculate-scores', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          project_number: projectNumber,
-          semester_id: semesterId,
-          admin_id: studentId
-        })
-      });
+      // Map projectType to 'midterm' | 'final' for the API function
+      const apiProjectType = projectType === 'Project 1' ? 'midterm' : 'final';
 
-      const data = await response.json();
+      const results = await calculateVotingScores(apiProjectType, semesterId, studentId);
 
-      if (data.success) {
-        setCalculationResults(prev => ({
-          ...prev,
-          [calculationKey]: data.data
-        }));
-        
-        // Show success message
-        alert(`✅ Marks calculated successfully for ${getProjectTypeName(projectType)}!\n${data.message}`);
-      } else {
-        throw new Error(data.message || 'Failed to calculate marks');
-      }
+      setCalculationResults(prev => ({
+        ...prev,
+        [calculationKey]: { results }
+      }));
+
+      // Show success message
+      alert(`✅ Marks calculated successfully for ${getProjectTypeName(projectType)}!`);
     } catch (error: any) {
       console.error('Calculation error:', error);
       setCalculationError(error.message);

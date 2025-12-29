@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Github, Calendar, User, Users, BookOpen, GraduationCap, Image as ImageIcon, ExternalLink, X, ZoomIn, Heart, Layers, Star, CheckCircle, Clock } from 'lucide-react';
-import { getPublicProjectsForSemester, getProjectVotesForSemester, type Submission, type ProjectWithVotes } from '../lib/api';
+import { getPublicProjectsForSemester, getProjectVotesForSemester, getSemesters, getLeaderboardForSemester, getProjectRatingsResults, type Submission, type ProjectWithVotes } from '../lib/api';
 import { useSemester } from '../contexts/SemesterContext';
 import ImageGallery from './ImageGallery';
 
@@ -40,25 +40,24 @@ const ProjectShowcase: React.FC<ProjectShowcaseProps> = ({ filterType = 'all' })
       // For fall semester, also fetch rating data and total students
       if (selectedSemester === 'fall_2025') {
         // First get the actual semester UUID
-        const semesterUuidPromise = fetch('/api/semesters').then(async res => {
-          const data = await res.json();
+        const semesterUuidPromise = getSemesters().then(data => {
           const fallSemester = data.data?.semesters?.find((s: any) => s.code === 'fall_2025');
           console.log('Semester lookup:', { data, fallSemester, uuid: fallSemester?.id });
           return fallSemester?.id || 'fall_2025'; // fallback to code if UUID not found
         }).catch(() => 'fall_2025');
-        
+
         promises.push(
-          semesterUuidPromise.then(semesterId => 
-            fetch(`/api/ratings/results?project_number=1&semester_id=${semesterId}`).then(res => res.json()).catch(() => ({ success: false, data: {} }))
+          semesterUuidPromise.then(semesterId =>
+            getProjectRatingsResults(1, semesterId).catch(() => ({ success: false, data: {} }))
           ),
-          semesterUuidPromise.then(semesterId => 
-            fetch(`/api/ratings/results?project_number=2&semester_id=${semesterId}`).then(res => res.json()).catch(() => ({ success: false, data: {} }))
+          semesterUuidPromise.then(semesterId =>
+            getProjectRatingsResults(2, semesterId).catch(() => ({ success: false, data: {} }))
           ),
-          semesterUuidPromise.then(semesterId => 
-            fetch(`/api/ratings/results?project_number=3&semester_id=${semesterId}`).then(res => res.json()).catch(() => ({ success: false, data: {} }))
+          semesterUuidPromise.then(semesterId =>
+            getProjectRatingsResults(3, semesterId).catch(() => ({ success: false, data: {} }))
           ),
           // Fetch total students
-          fetch(`/api/leaderboard?semester=fall_2025`).then(res => res.json()).catch(() => ({ success: false, data: { leaderboard: [] } }))
+          getLeaderboardForSemester('fall_2025').then(leaderboard => ({ success: true, data: { leaderboard } })).catch(() => ({ success: false, data: { leaderboard: [] } }))
         );
       }
 

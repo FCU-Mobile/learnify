@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Star, Users, Eye } from 'lucide-react';
+import { getProjectRatingsResults } from '../lib/api';
 
 interface StarRatingSummaryProps {
   submissionId: number;
@@ -48,8 +49,7 @@ const StarRatingSummary: React.FC<StarRatingSummaryProps> = ({
     try {
       setLoading(true);
 
-      const response = await fetch(`/api/ratings/results?project_number=${getProjectNumber()}&semester_id=${semesterId}`);
-      const data = await response.json();
+      const data = await getProjectRatingsResults(getProjectNumber(), semesterId);
 
       if (data.success && data.data.star_ratings) {
         const projectStarRatings = data.data.star_ratings.filter((rating: StarData) => {

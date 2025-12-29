@@ -1925,6 +1925,21 @@ export const getProjectRatings = async (
   return response.data.data.teacher_ratings || [];
 };
 
+// Get all project ratings results (teacher ratings, voting results, and star ratings)
+export const getProjectRatingsResults = async (
+  projectNumber: number,
+  semesterId: string
+): Promise<{success: boolean; data: {teacher_ratings: any[], voting_results: any[], star_ratings: any[]}}> => {
+  const response = await api.get<{success: boolean; data: {teacher_ratings: any[], voting_results: any[], star_ratings: any[]}}>('/api/ratings/results', {
+    params: {
+      project_number: projectNumber,
+      semester_id: semesterId
+    }
+  });
+
+  return response.data;
+};
+
 // Fall Leaderboard interfaces (2-project system)
 export interface FallLeaderboardEntry {
   student_id: string;
