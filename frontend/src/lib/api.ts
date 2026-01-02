@@ -785,8 +785,11 @@ export const submitQuizAnswer = async (data: QuizSubmissionRequest): Promise<Qui
   }
 };
 
-export const getStudentQuizScores = async (studentId: string): Promise<StudentQuizScoresResponse['data']> => {
-  const response = await api.get<StudentQuizScoresResponse>(`/api/quiz/student/${studentId}/scores`);
+export const getStudentQuizScores = async (studentId: string, semesterId?: string): Promise<StudentQuizScoresResponse['data']> => {
+  const params: any = {};
+  if (semesterId) params.semester_id = semesterId;
+
+  const response = await api.get<StudentQuizScoresResponse>(`/api/quiz/student/${studentId}/scores`, { params });
   if (!response.data.success) {
     throw new Error('Failed to fetch student quiz scores');
   }

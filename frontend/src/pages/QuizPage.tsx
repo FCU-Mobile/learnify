@@ -86,9 +86,10 @@ const QuizPage: React.FC = () => {
 
   const loadStudentStats = async () => {
     if (!studentId) return;
-    
+
     try {
-      const stats = await getStudentQuizScores(studentId);
+      const semesterId = getSemesterId();
+      const stats = await getStudentQuizScores(studentId, semesterId || undefined);
       setStudentStats(stats);
     } catch (error) {
       console.error('Failed to load student stats:', error);
